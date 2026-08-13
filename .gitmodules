@@ -1,0 +1,3 @@
+[submodule "LightCraft/Libraries/EmbeddedGFX"]
+	path = LightCraft/Libraries/EmbeddedGFX
+	url = https://github.com/BrandonVP/EmbeddedGFX.git

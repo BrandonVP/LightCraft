@@ -1,0 +1,19 @@
+# Visual Micro / Visual Studio build artifacts
+__vm/
+.vs/
+*.vsarduino.h
+VMBuilds/
+Debug/
+Release/
+*.user
+*.suo
+
+# Arduino build output
+build/
+*.hex
+*.elf
+*.bin
+
+# OS
+Thumbs.db
+.DS_Store
