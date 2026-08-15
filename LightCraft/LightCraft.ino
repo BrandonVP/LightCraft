@@ -38,19 +38,30 @@
 // --- Display (Arduino_GFX ST7701 RGB panel, from the seller example) --------
 #define GFX_BL 38
 
+// ST7701 command lines (3-wire SPI) used only to send the panel init sequence.
+Arduino_DataBus *panel_init_bus = new Arduino_SWSPI(
+    GFX_NOT_DEFINED /* DC */, 39 /* CS */, 48 /* SCK */, 47 /* SDA/MOSI */, GFX_NOT_DEFINED /* MISO */);
+
+// 16-bit parallel RGB data bus + panel timing (porches from the seller example).
 Arduino_ESP32RGBPanel *rgbpanel = new Arduino_ESP32RGBPanel(
-    39 /* CS */, 48 /* SCK */, 47 /* SDA */,
     18 /* DE */, 17 /* VSYNC */, 16 /* HSYNC */, 21 /* PCLK */,
     11 /* R0 */, 12 /* R1 */, 13 /* R2 */, 14 /* R3 */, 0 /* R4 */,
     8 /* G0 */, 20 /* G1 */, 3 /* G2 */, 46 /* G3 */, 9 /* G4 */, 10 /* G5 */,
-    4 /* B0 */, 5 /* B1 */, 6 /* B2 */, 7 /* B3 */, 15 /* B4 */);
+    4 /* B0 */, 5 /* B1 */, 6 /* B2 */, 7 /* B3 */, 15 /* B4 */,
+    1 /* hsync_polarity */, 10 /* hsync_front_porch */, 8 /* hsync_pulse_width */, 50 /* hsync_back_porch */,
+    1 /* vsync_polarity */, 10 /* vsync_front_porch */, 8 /* vsync_pulse_width */, 20 /* vsync_back_porch */,
+    0 /* pclk_active_neg — seller's proven default; 1 samples on the wrong clock edge and flickers */,
+    GFX_NOT_DEFINED /* prefer_speed */, false /* useBigEndian */,
+    0 /* de_idle_high */, 0 /* pclk_idle_high */,
+    480 * 10 /* bounce_buffer_size_px — SRAM staging buffer to stop PSRAM-starvation flicker */);
 
-Arduino_ST7701_RGBPanel *gfx = new Arduino_ST7701_RGBPanel(
-    rgbpanel, GFX_NOT_DEFINED /* RST */, 0 /* rotation */,
-    true /* IPS */, 480 /* width */, 480 /* height */,
-    st7701_type1_init_operations, sizeof(st7701_type1_init_operations), true /* BGR */,
-    10 /* hsync_front_porch */, 8 /* hsync_pulse_width */, 50 /* hsync_back_porch */,
-    10 /* vsync_front_porch */, 8 /* vsync_pulse_width */, 20 /* vsync_back_porch */);
+// Newer GFX_Library_for_Arduino: Arduino_RGB_Display replaces Arduino_ST7701_RGBPanel;
+// the ST7701 init runs over panel_init_bus. Derives from Arduino_GFX, so the
+// EmbeddedGFX adapter is unchanged.
+Arduino_RGB_Display *gfx = new Arduino_RGB_Display(
+    480 /* width */, 480 /* height */, rgbpanel, 0 /* rotation */, true /* auto_flush */,
+    panel_init_bus, GFX_NOT_DEFINED /* RST */,
+    st7701_type1_init_operations, sizeof(st7701_type1_init_operations));
 
 // --- Touch (GT911; pins/orientation from GT911Adapter.h) --------------------
 TAMC_GT911 ts(GT911_SDA, GT911_SCL, GT911_INT, GT911_RST,
@@ -64,6 +75,41 @@ App app;
 UserInterfaceClass appButtons[GFX_APP_BUTTON_SIZE];
 UserInterfaceClass menuButtons[GFX_MENU_BUTTON_SIZE];
 
+// Post-begin ST7701 fixups the newer GFX_Library_for_Arduino doesn't do for us.
+// It dropped Arduino_ST7701_RGBPanel, whose begin() ran two commands after the
+// shared st7701_type1_init_operations table that Arduino_RGB_Display omits:
+//   1. invertDisplay(false) -> 0x20. The init table ends with 0x21 (inversion
+//      ON); without the override every color comes out inverted (dark theme
+//      renders as tan/green/purple). This is the dominant fix.
+//   2. setRotation(0) with bgr=true -> MADCTL 0x36 = 0x00 (BGR). The table never
+//      writes 0x36, so red/blue would otherwise be swapped.
+void applyPanelColorFixups()
+{
+    // 1. Inversion OFF (undo the table's 0x21).
+    panel_init_bus->sendCommand(0x20);
+
+    // 2. Color order = BGR (mirrors the seller's setRotation(0) with bgr=true).
+    panel_init_bus->beginWrite();
+    // Y direction
+    panel_init_bus->writeCommand(0xFF);
+    panel_init_bus->write(0x77); panel_init_bus->write(0x01);
+    panel_init_bus->write(0x00); panel_init_bus->write(0x00); panel_init_bus->write(0x10);
+    panel_init_bus->writeCommand(0xC7);
+    panel_init_bus->write(0x00);
+    // Panel-specific color/data control. The new library's init table leaves
+    // 0xCD at 0x08; the seller's table (proven on this exact panel) explicitly
+    // sets it to 0x00. 0x08 skews mid-tones while leaving endpoints correct.
+    panel_init_bus->writeCommand(0xCD);
+    panel_init_bus->write(0x00);
+    // X direction + color order (back to user bank, then MADCTL = BGR)
+    panel_init_bus->writeCommand(0xFF);
+    panel_init_bus->write(0x77); panel_init_bus->write(0x01);
+    panel_init_bus->write(0x00); panel_init_bus->write(0x00); panel_init_bus->write(0x00);
+    panel_init_bus->writeCommand(0x36);
+    panel_init_bus->write(0x00);   // 0x00 = BGR, 0x08 = RGB
+    panel_init_bus->endWrite();
+}
+
 // --- Menu bar (3 tabs) ------------------------------------------------------
 void createMenuBtns()
 {
@@ -76,14 +122,29 @@ void createMenuBtns()
 // Draw the top menu bar. Also used as ThemeApp's menu-redraw hook.
 void drawMenuBar()
 {
-    GUI_I.drawSquareBtn(0,  0, GFX_SCREEN_WIDTH, 45, "", gfxTheme.menuBg, gfxTheme.menuBg, gfxTheme.menuBg, ALIGN_CENTER);
+    // Gradient header: deep at the top fading to the theme's menu color.
+    GUI_I.fillGradientV(0, 0, GFX_SCREEN_WIDTH, 45, gfxShade(gfxTheme.menuBg, -35), gfxTheme.menuBg);
+    // Underline strip below the bar.
     GUI_I.drawSquareBtn(0, 45, GFX_SCREEN_WIDTH, GFX_MENU_BAR_HEIGHT, "", gfxTheme.menuBorder, gfxTheme.menuBorder, gfxTheme.menuBorder, ALIGN_CENTER);
 
+    // Tab rects (used for hit-testing + the active underline). Labels are drawn
+    // as plain text straight over the gradient so it shows through — no filled
+    // tab boxes (mirrors the SwitchWarden frost look).
     createMenuBtns();
-    uint8_t state = 0;
-    while (GUI_I.drawPage(menuButtons, state, GFX_MENU_BUTTON_SIZE));
-    GUI_I.setGraphicLoaderState(0);
 
+    gfx->setTextSize(2);
+    gfx->setTextColor(gfxTheme.menuText);
+    for (uint8_t i = 0; i < GFX_MENU_BUTTON_SIZE; i++)
+    {
+        const char* label = menuButtons[i].getBtnText();
+        int16_t bx, by; uint16_t bw, bh;
+        gfx->getTextBounds(label, 0, 0, &bx, &by, &bw, &bh);
+        int cx = (menuButtons[i].getXStart() + menuButtons[i].getXStop()) / 2;
+        gfx->setCursor(cx - bw / 2, 15);
+        gfx->print(label);
+    }
+
+    // Underline the active app's tab.
     gfx_menu_id_t activeMenu = app.getActiveMenu();
     if (activeMenu < GFX_MENU_BUTTON_SIZE)
     {
@@ -117,7 +178,8 @@ void setup()
 
     // Display
     gfx->begin(16000000);
-    gfx->fillScreen(BLACK);
+    applyPanelColorFixups();    // undo the table's inversion + set BGR order
+    gfx->fillScreen(0x0000);   // black
     gfx->setTextWrap(false);
     pinMode(GFX_BL, OUTPUT);
     digitalWrite(GFX_BL, HIGH);
@@ -127,6 +189,8 @@ void setup()
 
     ThemeApp_setMenuRedraw(drawMenuBar);
     ThemeApp_begin();
+
+    home_seedClockFromBuild();   // clock runs from build time until NTP is added
 
     registerApps();
     app.init();                 // first registered app (Home) shows on load
@@ -140,5 +204,18 @@ void loop()
     GUI_I.buttonMonitor(menuButtons, GFX_MENU_BUTTON_SIZE);
     GUI_I.updateTouch();
     app.run();
+
+    // Redraw the whole menu bar when the active tab changes, so the header
+    // gradient, tab labels and active underline are always clean (the per-tap
+    // underline update can leave a sliver of the old bar behind).
+    static gfx_menu_id_t lastMenu = (gfx_menu_id_t)0xFF;
+    gfx_menu_id_t nowMenu = app.getActiveMenu();
+    if (nowMenu != lastMenu)
+    {
+        drawMenuBar();
+        lastMenu = nowMenu;
+    }
+
     switches_tick();            // 30s return-to-Home after a light turns on
+    home_tick();                // live clock while the Home tab is showing
 }

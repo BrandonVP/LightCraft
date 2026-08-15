@@ -29,6 +29,15 @@ Description : EmbeddedGFX ITouch adapter for the GT911 capacitive controller
 #define GT911_MAP_Y1 480
 #define GT911_MAP_Y2 0
 
+// The GT911 only reports a fresh sample every ~10-16ms and returns touches=0
+// (and clears its buffer) on any read in between. The main loop polls much
+// faster than that, so a raw read oscillates touched/untouched while a finger
+// is held down — which the GUI state machine reads as repeated tap/release,
+// making a toggle button buzz its relay on and off. Bridge those inter-report
+// gaps: keep reporting "held" (at the last valid coordinate) until we've seen
+// no touch for RELEASE_DEBOUNCE_MS, comfortably longer than one report period.
+#define GT911_RELEASE_DEBOUNCE_MS 40
+
 class GT911Adapter : public ITouch
 {
 public:
@@ -37,18 +46,41 @@ public:
     bool touched() override
     {
         m_ts.read();
-        return m_ts.isTouched;
+        uint32_t now = millis();
+
+        if (m_ts.isTouched)
+        {
+            m_lastTouchMs = now;
+            m_rawX = m_ts.points[0].x;   // cache the last valid raw point
+            m_rawY = m_ts.points[0].y;
+            m_held = true;
+        }
+        else if (m_held && (now - m_lastTouchMs) < GT911_RELEASE_DEBOUNCE_MS)
+        {
+            // Brief gap between GT911 reports — treat as still held.
+            return true;
+        }
+        else
+        {
+            m_held = false;
+        }
+        return m_held;
     }
 
     void getPoint(int& x, int& y) override
     {
-        // points[0] was populated by the read() in touched().
-        x = map(m_ts.points[0].x, GT911_MAP_X1, GT911_MAP_X2, 0, GFX_SCREEN_WIDTH - 1);
-        y = map(m_ts.points[0].y, GT911_MAP_Y1, GT911_MAP_Y2, 0, GFX_SCREEN_HEIGHT - 1);
+        // Map the last valid raw point (cached in touched()), so the coordinate
+        // stays put across inter-report gaps.
+        x = map(m_rawX, GT911_MAP_X1, GT911_MAP_X2, 0, GFX_SCREEN_WIDTH - 1);
+        y = map(m_rawY, GT911_MAP_Y1, GT911_MAP_Y2, 0, GFX_SCREEN_HEIGHT - 1);
     }
 
 private:
     TAMC_GT911& m_ts;
+    uint32_t    m_lastTouchMs = 0;
+    uint16_t    m_rawX = 0;
+    uint16_t    m_rawY = 0;
+    bool        m_held = false;
 };
 
 #endif // GT911_ADAPTER_H

@@ -35,17 +35,28 @@ uint8_t switches_createBtns(void)
 {
     UserInterfaceClass* b = GUI_I.appButtons();
 
+    // Body is cleared to the solid theme background by the framework. A subtle
+    // gradient posterizes into visible bands on this panel (RGB565), so the depth
+    // comes purely from the raised cards + drop shadows.
+    const uint16_t cardFill   = gfxShade(gfxTheme.background, 15);   // slightly raised
+    const uint16_t cardShadow = 0x0000;                             // pure black drop shadow
+
     for (uint8_t i = 0; i < LIGHT_COUNT; i++)
     {
         int x1 = 20 + i * 153;   // 3 columns, ~133 wide, 20 gap
         int x2 = x1 + 133;
 
-        b[nameIdx(i)].setButton(x1, 70, x2, 120, 0, true, 10, NAMES[i], ALIGN_CENTER,
-                                gfxTheme.background, gfxTheme.background, gfxTheme.btnTextColor);
+        // Floating card holding this light's label + toggle.
+        GUI_I.drawCard(x1 - 4, 60, (x2 - x1) + 8, 378, 18, cardFill, cardShadow, 5);
+
+        // Name label — blends onto the card.
+        b[nameIdx(i)].setButton(x1, 74, x2, 120, 0, true, 10, NAMES[i], ALIGN_CENTER,
+                                cardFill, cardFill, gfxTheme.btnTextColor);
         b[nameIdx(i)].setClickable(false);
         b[nameIdx(i)].setTextSize(16);
 
-        b[toggleIdx(i)].setButton(x1, 140, x2, 430, SW_BASE + i, true, 14, "OFF", ALIGN_CENTER,
+        // Toggle button sits on the card.
+        b[toggleIdx(i)].setButton(x1, 140, x2, 424, SW_BASE + i, true, 16, "OFF", ALIGN_CENTER,
                                   gfxTheme.btnColor, gfxTheme.btnBorder, gfxTheme.btnText);
         b[toggleIdx(i)].setTextSize(24);
 
