@@ -19,7 +19,7 @@ static const char* const DOW[7] =
     { "Sun","Mon","Tue","Wed","Thu","Fri","Sat" };
 
 // Button indices on the shared app-button array.
-enum { TIME_IDX = 0, DATE_IDX, TEMP_IDX, FEELS_IDX, HILO_IDX, CITY_IDX, HOME_BTN_COUNT };
+enum { TIME_IDX = 0, DATE_IDX, TEMP_IDX, FEELS_IDX, HILO_IDX, ROOM_IDX, CITY_IDX, HOME_BTN_COUNT };
 
 // Set the clock label texts from the current time (no drawing).
 static void setTimeLabels(void)
@@ -36,7 +36,7 @@ static void setTimeLabels(void)
 static void setWeatherLabels(void)
 {
     UserInterfaceClass* b = GUI_I.appButtons();
-    const WeatherData& w = weather_get();
+    WeatherData w = weather_get();
     if (w.valid)
     {
         b[TEMP_IDX].setTextFormat("%d\xF8" "F", w.temperature);
@@ -51,6 +51,12 @@ static void setWeatherLabels(void)
         b[HILO_IDX].setText("");
         b[CITY_IDX].setText(weather_isConnected() ? "Loading weather..." : "Connecting to WiFi...");
     }
+
+    // Room reading from the weather station (independent of the OWM fetch).
+    if (w.roomValid)
+        b[ROOM_IDX].setTextFormat("Room %d\xF8" "F    %u%%", w.roomTempF, w.roomHumidity);
+    else
+        b[ROOM_IDX].setText("Room --");
 }
 
 uint8_t home_createBtns(void)
@@ -65,22 +71,25 @@ uint8_t home_createBtns(void)
     GUI_I.drawCard(24, 84, 432, 312, 20, cardFill, cardShadow, 6);
 
     // All labels blend onto the card (bg = cardFill).
-    b[TIME_IDX].setButton(40, 92, 440, 152, 0, true, 12, "--:--:--", ALIGN_CENTER, cardFill, cardFill, gfxTheme.btnTextColor);
+    b[TIME_IDX].setButton(40, 90, 440, 146, 0, true, 12, "--:--:--", ALIGN_CENTER, cardFill, cardFill, gfxTheme.btnTextColor);
     b[TIME_IDX].setTextSize(34);  b[TIME_IDX].setClickable(false);
 
-    b[DATE_IDX].setButton(40, 156, 440, 188, 0, true, 12, "--- --- --", ALIGN_CENTER, cardFill, cardFill, gfxTheme.btnTextColor);
+    b[DATE_IDX].setButton(40, 150, 440, 178, 0, true, 12, "--- --- --", ALIGN_CENTER, cardFill, cardFill, gfxTheme.btnTextColor);
     b[DATE_IDX].setTextSize(16);  b[DATE_IDX].setClickable(false);
 
-    b[TEMP_IDX].setButton(40, 206, 440, 268, 0, true, 12, "--\xF8" "F", ALIGN_CENTER, cardFill, cardFill, gfxTheme.btnTextColor);
+    b[TEMP_IDX].setButton(40, 186, 440, 244, 0, true, 12, "--\xF8" "F", ALIGN_CENTER, cardFill, cardFill, gfxTheme.btnTextColor);
     b[TEMP_IDX].setTextSize(40);  b[TEMP_IDX].setClickable(false);
 
-    b[FEELS_IDX].setButton(40, 276, 440, 303, 0, true, 12, "", ALIGN_CENTER, cardFill, cardFill, gfxTheme.btnTextColor);
+    b[FEELS_IDX].setButton(40, 250, 440, 276, 0, true, 12, "", ALIGN_CENTER, cardFill, cardFill, gfxTheme.btnTextColor);
     b[FEELS_IDX].setTextSize(16); b[FEELS_IDX].setClickable(false);
 
-    b[HILO_IDX].setButton(40, 307, 440, 334, 0, true, 12, "", ALIGN_CENTER, cardFill, cardFill, gfxTheme.btnTextColor);
+    b[HILO_IDX].setButton(40, 280, 440, 306, 0, true, 12, "", ALIGN_CENTER, cardFill, cardFill, gfxTheme.btnTextColor);
     b[HILO_IDX].setTextSize(16);  b[HILO_IDX].setClickable(false);
 
-    b[CITY_IDX].setButton(40, 346, 440, 382, 0, true, 12, "Connecting to WiFi...", ALIGN_CENTER, cardFill, cardFill, gfxTheme.btnTextColor);
+    b[ROOM_IDX].setButton(40, 312, 440, 340, 0, true, 12, "Room --", ALIGN_CENTER, cardFill, cardFill, gfxTheme.btnTextColor);
+    b[ROOM_IDX].setTextSize(16);  b[ROOM_IDX].setClickable(false);
+
+    b[CITY_IDX].setButton(40, 346, 440, 388, 0, true, 12, "Connecting to WiFi...", ALIGN_CENTER, cardFill, cardFill, gfxTheme.btnTextColor);
     b[CITY_IDX].setTextSize(16);  b[CITY_IDX].setClickable(false);
 
     // Populate with the current time + saved weather so a (re)entry to Home

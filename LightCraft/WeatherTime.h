@@ -22,20 +22,21 @@ struct WeatherData
     int16_t tempHigh;     // deg F
     int16_t tempLow;      // deg F
     uint8_t humidity;     // %
-    bool    valid;        // true once a fetch has succeeded
+    bool    valid;        // true once an OpenWeatherMap fetch has succeeded
+
+    // Room reading from the ESP8266 weather station (LAN).
+    int16_t roomTempF;    // deg F
+    uint8_t roomHumidity; // %
+    bool    roomValid;    // true once the /room endpoint has answered
 };
 
-// Start WiFi (returns immediately) and set the timezone. Call once in setup().
+// Start the network task (WiFi + NTP + weather) on core 0. Call once in setup().
+// Returns immediately; all blocking work happens on the task, not the UI loop.
 void weather_begin();
-
-// Call every loop(): polls the WiFi link, starts NTP on first connect, and
-// refreshes the weather on a timer. The weather fetch itself is blocking
-// (~1-2s) but only runs on connect and every few minutes.
-void weather_tick();
 
 bool weather_isConnected();          // WiFi associated
 bool weather_timeValid();            // NTP has produced a real wall-clock time
-const WeatherData& weather_get();
+WeatherData weather_get();           // thread-safe snapshot of the latest reading
 uint32_t weather_updateCount();      // bumps on each successful weather fetch
 
 #endif // WEATHERTIME_H

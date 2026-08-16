@@ -227,8 +227,5 @@ void loop()
     }
 
     switches_tick();            // 30s return-to-Home after a light turns on
-#if WEATHER_ENABLE
-    weather_tick();             // WiFi poll, NTP sync, periodic weather fetch
-#endif
     home_tick();                // live clock + weather while the Home tab is showing
 }
