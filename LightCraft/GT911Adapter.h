@@ -29,13 +29,16 @@ Description : EmbeddedGFX ITouch adapter for the GT911 capacitive controller
 #define GT911_MAP_Y1 480
 #define GT911_MAP_Y2 0
 
-// The GT911 only reports a fresh sample every ~10-16ms and returns touches=0
-// (and clears its buffer) on any read in between. The main loop polls much
-// faster than that, so a raw read oscillates touched/untouched while a finger
-// is held down — which the GUI state machine reads as repeated tap/release,
-// making a toggle button buzz its relay on and off. Bridge those inter-report
-// gaps: keep reporting "held" (at the last valid coordinate) until we've seen
-// no touch for RELEASE_DEBOUNCE_MS, comfortably longer than one report period.
+// The GT911 only samples every ~10-16ms. Two consequences shape this adapter:
+//
+//  1. Reading it every loop (sub-ms) hammers the ESP32-S3 I2C master driver,
+//     which corrupts and crashes under the RGB panel's continuous DMA load
+//     (Guru Meditation inside Wire.requestFrom -> i2c_master_receive). Throttle
+//     the actual I2C read to ~the report rate; polling faster gains nothing.
+//  2. Between fresh samples a raw read returns touches=0, so without smoothing
+//     a held finger reads as rapid tap/release (buzzing relays). Keep reporting
+//     "held" at the last coordinate until no touch for RELEASE_DEBOUNCE_MS.
+#define GT911_READ_INTERVAL_MS    15
 #define GT911_RELEASE_DEBOUNCE_MS 40
 
 class GT911Adapter : public ITouch
@@ -45,24 +48,23 @@ public:
 
     bool touched() override
     {
-        m_ts.read();
         uint32_t now = millis();
+        if ((uint32_t)(now - m_lastReadMs) >= GT911_READ_INTERVAL_MS)
+        {
+            m_lastReadMs = now;
+            m_ts.read();
 
-        if (m_ts.isTouched)
-        {
-            m_lastTouchMs = now;
-            m_rawX = m_ts.points[0].x;   // cache the last valid raw point
-            m_rawY = m_ts.points[0].y;
-            m_held = true;
-        }
-        else if (m_held && (now - m_lastTouchMs) < GT911_RELEASE_DEBOUNCE_MS)
-        {
-            // Brief gap between GT911 reports — treat as still held.
-            return true;
-        }
-        else
-        {
-            m_held = false;
+            if (m_ts.isTouched)
+            {
+                m_lastTouchMs = now;
+                m_rawX = m_ts.points[0].x;   // cache the last valid raw point
+                m_rawY = m_ts.points[0].y;
+                m_held = true;
+            }
+            else if (m_held && (uint32_t)(now - m_lastTouchMs) >= GT911_RELEASE_DEBOUNCE_MS)
+            {
+                m_held = false;   // sustained no-touch = real release
+            }
         }
         return m_held;
     }
@@ -77,6 +79,7 @@ public:
 
 private:
     TAMC_GT911& m_ts;
+    uint32_t    m_lastReadMs = 0;
     uint32_t    m_lastTouchMs = 0;
     uint16_t    m_rawX = 0;
     uint16_t    m_rawY = 0;

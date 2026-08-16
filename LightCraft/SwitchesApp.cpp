@@ -17,7 +17,7 @@ static const int      SW_BASE = 1;             // toggle click-returns: 1..3
 static const uint32_t AUTO_RETURN_MS = 30000;  // back to Home 30s after a light on
 static const uint16_t COL_ON = 0x07E0;         // green when a light is on
 
-static const char* const NAMES[LIGHT_COUNT] = { "Light 1", "Light 2", "Light 3" };
+static const char* const NAMES[LIGHT_COUNT] = { "Hall", "Room", "Fan" };
 
 static uint32_t s_autoReturnAt = 0;            // 0 == disarmed
 

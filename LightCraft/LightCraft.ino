@@ -34,9 +34,16 @@
 #include "RelayControl.h"
 #include "HomeApp.h"
 #include "SwitchesApp.h"
+#include "WeatherTime.h"
+
+// Give the Arduino loop task extra stack headroom (draw call chains + WiFi).
+SET_LOOP_TASK_STACK_SIZE(16 * 1024);
 
 // --- Display (Arduino_GFX ST7701 RGB panel, from the seller example) --------
 #define GFX_BL 38
+
+// Diagnostic: set to 0 to build with WiFi/NTP/weather disabled.
+#define WEATHER_ENABLE 1
 
 // ST7701 command lines (3-wire SPI) used only to send the panel init sequence.
 Arduino_DataBus *panel_init_bus = new Arduino_SWSPI(
@@ -53,7 +60,7 @@ Arduino_ESP32RGBPanel *rgbpanel = new Arduino_ESP32RGBPanel(
     0 /* pclk_active_neg — seller's proven default; 1 samples on the wrong clock edge and flickers */,
     GFX_NOT_DEFINED /* prefer_speed */, false /* useBigEndian */,
     0 /* de_idle_high */, 0 /* pclk_idle_high */,
-    480 * 10 /* bounce_buffer_size_px — SRAM staging buffer to stop PSRAM-starvation flicker */);
+    0 /* bounce_buffer_size_px: disabled, its refill ISR is not IRAM-safe and faults under load */);
 
 // Newer GFX_Library_for_Arduino: Arduino_RGB_Display replaces Arduino_ST7701_RGBPanel;
 // the ST7701 init runs over panel_init_bus. Derives from Arduino_GFX, so the
@@ -190,7 +197,10 @@ void setup()
     ThemeApp_setMenuRedraw(drawMenuBar);
     ThemeApp_begin();
 
-    home_seedClockFromBuild();   // clock runs from build time until NTP is added
+    home_seedClockFromBuild();   // placeholder clock until NTP syncs
+#if WEATHER_ENABLE
+    weather_begin();             // start WiFi (non-blocking); NTP + weather follow
+#endif
 
     registerApps();
     app.init();                 // first registered app (Home) shows on load
@@ -217,5 +227,8 @@ void loop()
     }
 
     switches_tick();            // 30s return-to-Home after a light turns on
-    home_tick();                // live clock while the Home tab is showing
+#if WEATHER_ENABLE
+    weather_tick();             // WiFi poll, NTP sync, periodic weather fetch
+#endif
+    home_tick();                // live clock + weather while the Home tab is showing
 }

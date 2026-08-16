@@ -17,3 +17,9 @@ build/
 # OS
 Thumbs.db
 .DS_Store
+
+# Secrets (WiFi credentials + API keys) — copy secrets.h.example to secrets.h
+LightCraft/secrets.h
+
+# Reference-only old project (contains plaintext WiFi/API credentials)
+weather example/
