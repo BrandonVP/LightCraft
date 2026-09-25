@@ -1,4 +1,4 @@
-/*
+﻿/*
  ===========================================================================
  Name        : LightCraft.ino
  Author      : Brandon Van Pelt
@@ -20,7 +20,7 @@
                  RGB panel + backlight GPIO 38, GT911 on I2C SDA 19 / SCL 45,
                  relays on GPIO 40 / 2 / 1 (active-high).
 
-               NOTE: build for the ESP32-S3 with OPI PSRAM enabled — the RGB
+               NOTE: build for the ESP32-S3 with OPI PSRAM enabled â€” the RGB
                panel framebuffer lives in PSRAM.
  ===========================================================================
  */
@@ -37,6 +37,7 @@
 #include "RelayControl.h"
 #include "HomeApp.h"
 #include "ControlApp.h"
+#include "ClimateApp.h"
 #include "MiniSplit.h"
 #include "WeatherTime.h"
 #include "WeatherIcons.h"
@@ -57,9 +58,9 @@ SET_LOOP_TASK_STACK_SIZE(16 * 1024);
 //
 // The framebuffer lives in PSRAM and the LCD peripheral streams it out
 // continuously with no bounce buffer, so at 16 MHz the panel alone is pulling
-// ~32 MB/s through the MSPI bus it SHARES with flash. Any stall on that bus —
+// ~32 MB/s through the MSPI bus it SHARES with flash. Any stall on that bus â€”
 // a flash cache miss on a cold code path (WiFi callbacks, HTTP, JSON, an NVS
-// write), or PSRAM traffic from the other core — starves the line FIFO, and the
+// write), or PSRAM traffic from the other core â€” starves the line FIFO, and the
 // whole image steps sideways for a frame or two and snaps back. Lowering the
 // clock buys the FIFO slack to ride those stalls out.
 //
@@ -83,7 +84,7 @@ Arduino_ESP32RGBPanel *rgbpanel = new Arduino_ESP32RGBPanel(
     4 /* B0 */, 5 /* B1 */, 6 /* B2 */, 7 /* B3 */, 15 /* B4 */,
     1 /* hsync_polarity */, 10 /* hsync_front_porch */, 8 /* hsync_pulse_width */, 50 /* hsync_back_porch */,
     1 /* vsync_polarity */, 10 /* vsync_front_porch */, 8 /* vsync_pulse_width */, 20 /* vsync_back_porch */,
-    0 /* pclk_active_neg — seller's proven default; 1 samples on the wrong clock edge and flickers */,
+    0 /* pclk_active_neg â€” seller's proven default; 1 samples on the wrong clock edge and flickers */,
     GFX_NOT_DEFINED /* prefer_speed */, false /* useBigEndian */,
     0 /* de_idle_high */, 0 /* pclk_idle_high */,
     0 /* bounce_buffer_size_px: disabled, its refill ISR is not IRAM-safe and faults under load */);
@@ -161,7 +162,7 @@ void drawMenuBar()
     GUI_I.drawSquareBtn(0, 45, GFX_SCREEN_WIDTH, GFX_MENU_BAR_HEIGHT, "", gfxTheme.menuBorder, gfxTheme.menuBorder, gfxTheme.menuBorder, ALIGN_CENTER);
 
     // Tab rects (used for hit-testing + the active underline). Labels are drawn
-    // as plain text straight over the gradient so it shows through — no filled
+    // as plain text straight over the gradient so it shows through â€” no filled
     // tab boxes (mirrors the SwitchWarden frost look).
     createMenuBtns();
 
@@ -191,7 +192,7 @@ void drawMenuBar()
 // --- Library-generated pages ------------------------------------------------
 // The framework builds the Settings landing list and the Themes grid itself,
 // and UserInterfaceClass::setButton() leaves every button at the default text
-// size of 11 — which this adapter maps to 1x, a 6x8 px glyph that is unreadable
+// size of 11 â€” which this adapter maps to 1x, a 6x8 px glyph that is unreadable
 // on a 480x480 panel. Every hand-built page in this project sets its own size;
 // these two are wrapped so they get one too.
 static const uint8_t GENERATED_PAGE_TEXT_SIZE = 16;   // -> 2x
@@ -213,12 +214,13 @@ void registerApps()
     app.add(MENU_home,     "Home",     APP_HOME,          home_handler,     home_createBtns);
     app.add(MENU_home,     "Forecast", APP_FORECAST,      forecastApp_handler, forecastApp_createBtns);
     app.add(MENU_control,  "Control",  APP_CONTROL,       control_handler,  control_createBtns);
+    app.add(MENU_control,  "Climate",  APP_CLIMATE,       climate_handler,  climate_createBtns);
     app.add(MENU_settings, "Settings", APP_SETTINGS_MENU, GFX_menuInput,     settingsMenu_createBtns);
     app.add(MENU_settings, "Themes",   APP_THEME,         ThemeApp_handler,  themes_createBtns);
     app.add(MENU_settings, "Temp Rules", APP_TEMP_RULES,  temprule_handler,  temprule_createBtns);
     app.add(MENU_settings, "WiFi",     APP_WIFI,          wifiApp_handler,   wifiApp_createBtns);
 
-    // On MENU_hidden so it never shows up in the Settings list — it is opened
+    // On MENU_hidden so it never shows up in the Settings list â€” it is opened
     // by whatever page needs a string, and returns there.
     app.add(MENU_hidden,   "Keyboard", APP_KEYBOARD,      KeyboardApp_handler, KeyboardApp_createBtns);
 }
@@ -287,7 +289,8 @@ void loop()
 
     TEMPCTL_tick();             // room-temperature rules drive the relays
     MINISPLIT_tick();           // send a coalesced mini-split frame once edits settle
-    control_tick();             // 30s return-to-Home after a light turns on
+    control_tick();             // 30s return-to-Home after a light turns on
+    climate_tick();             // live status on the full mini-split page
     home_tick();                // live clock + weather while the Home tab is showing
     forecastApp_tick();         // rebuild the forecast page when new data lands
     temprule_tick();            // live room temp + hold-to-repeat on Temp Rules

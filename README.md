@@ -33,7 +33,18 @@ the local key), and this exact model reports zero frames on the AUX serial
 protocol.
 
 The panel exposes power, setpoint (60–86 °F), mode (heat / cool / auto), fan
-(auto / low / med / high) and vertical + horizontal blade movement.
+(auto / low / med / high) and vertical + horizontal blade movement, split across
+two levels:
+
+- The **Control tab** carries only power and a large setpoint readout, because
+  changing the temperature is the daily job. **Tapping the card** opens the full
+  page; the buttons on the card still work as buttons, since the card face is
+  hit-tested underneath them.
+- The **full page** (`ClimateApp`) takes the whole screen for mode, fan and both
+  blade axes, with room left for whatever the IR protocol turns out to expose.
+
+That split is also what pays for the much larger light toggles at the bottom of
+the Control tab.
 
 Two things follow from IR being **open loop**:
 

@@ -5,9 +5,11 @@ Author      : Brandon Van Pelt
 Description : Control tab — room mini-split on top, light switches along the
               bottom. Replaces the old Switches tab.
 
-              Climate widgets drive MiniSplit.*; the light row drives
-              RelayControl.* and still shows any temperature rule set in
-              Settings > Temp Rules.
+              The mini-split card carries only power and setpoint, and the
+              whole card is a button that opens the full page (ClimateApp) for
+              mode, fan and blades. Climate widgets drive MiniSplit.*; the light
+              row drives RelayControl.* and still shows any temperature rule set
+              in Settings > Temp Rules.
 
               Turning a light on arms a 30s timer that returns to the Home tab;
               any further tap on this page pushes that out, so adjusting the
