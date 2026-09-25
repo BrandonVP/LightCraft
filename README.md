@@ -7,13 +7,71 @@ library.
 
 ## Tabs
 
-- **Home** — date / time / weather. Placeholder for now; the NTP clock and
-  weather API (reusing keys from another project) are a future feature.
+- **Home** — two cards: an NTP clock (time + date) on top, and a weather card
+  below with a drawn condition icon, the current outdoor reading from
+  OpenWeatherMap, and the room reading from the LAN weather station. **Tap the
+  weather card** for the 5-day forecast.
 - **Switches** — three ON/OFF light toggles in a row.
-- **Settings** — theme picker.
+- **Settings** — theme picker, temperature rules.
 
 **Behaviour:** turning a light on from the Switches tab returns to the Home tab
 30 seconds later.
+
+## Weather (Home) and the 5-day forecast
+
+The weather card is a button: tapping it opens the forecast page (registered
+under the Home menu, so the Home tab stays lit and **Back** returns to it) and
+asks the network task for a fresh fetch on the way in.
+
+The forecast comes from OpenWeatherMap's free **5 day / 3 hour** endpoint
+(`/data/2.5/forecast`) — the daily One Call feed needs its own subscription — so
+the 3-hourly slots are folded into local calendar days: high and low are the
+extremes across each day's slots, and the icon is taken from the slot nearest
+1 pm. Day 0 is today, so its range only covers the hours still to come. It
+refreshes every 30 minutes, plus on demand when the page opens, and is skipped
+until NTP has synced (the day a slot belongs to comes from the local clock).
+
+### Icons
+
+`WeatherIcons.cpp` **draws** the condition icons — sun, moon, sun/moon behind
+cloud, cloud, overcast, showers, rain, storm, snow, mist — from circles, lines
+and spans rather than storing bitmaps. That way one icon serves both sizes
+(92 px on the Home card, 52 px in the forecast rows), the outline picks itself
+from the luminance of the card behind it so the icons work on the dark themes
+*and* Snow, and it costs no flash. Each shape is painted twice — inflated in the
+outline colour, then at size in its fill — which outlines the union of
+overlapping circles without leaving interior arcs.
+
+This is the one app-layer module that calls Arduino_GFX directly: EmbeddedGFX's
+`IDisplay` carries only rect/round-rect primitives, and these need circles and
+lines. `wicon_begin(gfx)` in `setup()` binds the surface.
+
+## Temperature rules (Settings > Temp Rules)
+
+Each switch can be driven by the room temperature published by the ESP8266
+weather station on the LAN. One row per light:
+
+```
+Fan     [ ABOVE ]   [ - ]  74°  [ + ]
+```
+
+- **Mode** cycles `OFF` → `ABOVE` → `BELOW`. `ABOVE` turns the light on when the
+  room reaches the setpoint (a ceiling fan); `BELOW` is the inverse (a heater).
+- **- / +** move the setpoint between 40 °F and 95 °F. Hold to repeat; keep
+  holding to move 5 °F at a time.
+- **SAVE** writes the rules to flash. An edit takes effect immediately — saving
+  is only what makes it survive a reboot.
+
+Rules are **edge triggered**: a light is switched when the temperature crosses
+the setpoint, never held there. A manual tap on the Switches tab therefore
+always wins until the next crossing, and a light already under a rule shows it
+on its Switches label (`Fan >74°`). A 2 °F deadband on the release side keeps a
+reading that hovers on the setpoint from chattering the relay, and the rules
+stop acting entirely if the room reading is missing or more than 5 minutes old.
+
+**Storage:** the rules live in the ESP32's NVS flash (`Preferences`, namespace
+`lightcraft`), not on the SD card — the TF slot shares its SPI bus (IO47/IO48)
+with the ST7701 panel's command lines, and flash needs no card inserted.
 
 ## Hardware
 
@@ -56,7 +114,36 @@ Open `LightCraft.sln`, and in the Visual Micro board selector choose the
 
 Then build and upload over the USB/UART port.
 
+Flash Mode **QIO** and Flash Speed **80 MHz** matter here beyond raw speed — see
+below.
+
+## Known issue: the image steps sideways for a frame
+
+Every so often the whole screen shifts right and snaps back, on any page. This
+is the RGB peripheral's line FIFO running dry, not a drawing bug.
+
+The framebuffer lives in PSRAM (it has to — 480x480x2 = 460 KB) and the LCD
+streams it out continuously. On the ESP32-S3, **flash and PSRAM share the MSPI
+bus**, so anything that stalls that bus starves the FIFO: a cache miss on a cold
+code path (WiFi callbacks, HTTP, JSON parsing, an NVS write), or PSRAM traffic
+from the other core. Pixels arrive late, the line draws shifted, and the next
+frame recovers.
+
+The proper fix — a bounce buffer, so the DMA reads from internal SRAM — is not
+available here: its refill ISR is not IRAM-safe in the stock Arduino build and
+faults under exactly the flash-cache-miss conditions that cause the problem
+(that crash is why `bounce_buffer_size_px` is 0). What is left:
+
+1. **Lower the pixel clock** — `PANEL_PCLK_HZ` at the top of `LightCraft.ino`.
+   Less continuous bandwidth means more slack to ride out a stall.
+   16 MHz ~= 56 Hz, 14 MHz ~= 49 Hz, 12 MHz ~= 42 Hz refresh. Currently 14 MHz.
+2. **Flash Mode QIO / Flash Speed 80 MHz** in the board options. Slower flash
+   means every cache miss stalls the shared bus for longer.
+3. To confirm the cause, set `WEATHER_ENABLE 0` and run for a while. If the
+   shifting stops or gets much rarer, it is the network task's flash traffic.
+
 ## Roadmap
 
-- Home tab: NTP time/date + weather API (keys come from another project).
-- Optional: physical-button input, schedules, MQTT/Home Assistant.
+- Optional: physical-button input, time-of-day schedules, MQTT/Home Assistant.
+- Temp rules: per-rule hysteresis and editable light names.
+- Forecast: hourly detail, and wind / precipitation chance per day.

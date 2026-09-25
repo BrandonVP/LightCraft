@@ -26,4 +26,8 @@ void RELAY_set(uint8_t light, bool on);
 void RELAY_toggle(uint8_t light);
 bool RELAY_isOn(uint8_t light);
 
+// Display name for a light ("Hall" / "Room" / "Fan"), shared by every tab that
+// labels a switch. Always returns a valid string.
+const char* RELAY_name(uint8_t light);
+
 #endif // RELAYCONTROL_H

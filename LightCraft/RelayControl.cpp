@@ -13,6 +13,9 @@ static const uint8_t LIGHT_PIN[LIGHT_COUNT] = { 40, 2, 1 };
 // Active level: the demo drives HIGH = on, LOW = off.
 static const bool LIGHT_ACTIVE_HIGH = true;
 
+// Display names, shared by the Switches tab and the Temp Rules settings app.
+static const char* const LIGHT_NAME[LIGHT_COUNT] = { "Hall", "Room", "Fan" };
+
 static bool s_on[LIGHT_COUNT];
 
 static void drive(uint8_t light, bool on)
@@ -45,4 +48,9 @@ void RELAY_toggle(uint8_t light)
 bool RELAY_isOn(uint8_t light)
 {
     return light < LIGHT_COUNT && s_on[light];
+}
+
+const char* RELAY_name(uint8_t light)
+{
+    return (light < LIGHT_COUNT) ? LIGHT_NAME[light] : "";
 }

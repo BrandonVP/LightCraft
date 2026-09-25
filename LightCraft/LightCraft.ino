@@ -9,10 +9,12 @@
                Tabs:
                  Home     - date / time / weather (placeholder; NTP+API later)
                  Switches - three ON/OFF light toggles in a row
-                 Settings - theme picker
+                 Settings - theme picker, room-temperature rules
 
                Behaviour: turning a light on (from the Switches tab) returns to
-               the Home tab 30s later.
+               the Home tab 30s later. Each light can also carry a temperature
+               rule (Settings > Temp Rules) that switches it when the room
+               reading from the weather station crosses a setpoint.
 
                Display/touch/relay config comes from the seller demos:
                  RGB panel + backlight GPIO 38, GT911 on I2C SDA 19 / SCL 45,
@@ -35,12 +37,32 @@
 #include "HomeApp.h"
 #include "SwitchesApp.h"
 #include "WeatherTime.h"
+#include "WeatherIcons.h"
+#include "ForecastApp.h"
+#include "TempControl.h"
+#include "TempRuleApp.h"
 
 // Give the Arduino loop task extra stack headroom (draw call chains + WiFi).
 SET_LOOP_TASK_STACK_SIZE(16 * 1024);
 
 // --- Display (Arduino_GFX ST7701 RGB panel, from the seller example) --------
 #define GFX_BL 38
+
+// Pixel clock for the RGB panel (Arduino_ESP32RGBPanel::begin() feeds this
+// straight into esp_lcd's pclk_hz).
+//
+// The framebuffer lives in PSRAM and the LCD peripheral streams it out
+// continuously with no bounce buffer, so at 16 MHz the panel alone is pulling
+// ~32 MB/s through the MSPI bus it SHARES with flash. Any stall on that bus —
+// a flash cache miss on a cold code path (WiFi callbacks, HTTP, JSON, an NVS
+// write), or PSRAM traffic from the other core — starves the line FIFO, and the
+// whole image steps sideways for a frame or two and snaps back. Lowering the
+// clock buys the FIFO slack to ride those stalls out.
+//
+// 480x480 plus porches = 548 x 518 px per frame:
+//   16 MHz ~= 56 Hz   14 MHz ~= 49 Hz   12 MHz ~= 42 Hz
+// Step down until the shifting stops; the cost is refresh rate.
+#define PANEL_PCLK_HZ 14000000
 
 // Diagnostic: set to 0 to build with WiFi/NTP/weather disabled.
 #define WEATHER_ENABLE 1
@@ -162,13 +184,34 @@ void drawMenuBar()
     GUI_I.updateScreen();
 }
 
+// --- Library-generated pages ------------------------------------------------
+// The framework builds the Settings landing list and the Themes grid itself,
+// and UserInterfaceClass::setButton() leaves every button at the default text
+// size of 11 — which this adapter maps to 1x, a 6x8 px glyph that is unreadable
+// on a 480x480 panel. Every hand-built page in this project sets its own size;
+// these two are wrapped so they get one too.
+static const uint8_t GENERATED_PAGE_TEXT_SIZE = 16;   // -> 2x
+
+static uint8_t scaleGeneratedPage(uint8_t count)
+{
+    UserInterfaceClass* b = GUI_I.appButtons();
+    for (uint8_t i = 0; i < count; i++)
+        b[i].setTextSize(GENERATED_PAGE_TEXT_SIZE);
+    return count;
+}
+
+static uint8_t settingsMenu_createBtns(void) { return scaleGeneratedPage(GFX_createMenu()); }
+static uint8_t themes_createBtns(void)       { return scaleGeneratedPage(ThemeApp_createBtns()); }
+
 // --- App registration ------------------------------------------------------
 void registerApps()
 {
     app.add(MENU_home,     "Home",     APP_HOME,          home_handler,     home_createBtns);
+    app.add(MENU_home,     "Forecast", APP_FORECAST,      forecastApp_handler, forecastApp_createBtns);
     app.add(MENU_switches, "Switches", APP_SWITCHES,      switches_handler, switches_createBtns);
-    app.add(MENU_settings, "Settings", APP_SETTINGS_MENU, GFX_menuInput,    GFX_createMenu);
-    app.add(MENU_settings, "Themes",   APP_THEME,         ThemeApp_handler, ThemeApp_createBtns);
+    app.add(MENU_settings, "Settings", APP_SETTINGS_MENU, GFX_menuInput,     settingsMenu_createBtns);
+    app.add(MENU_settings, "Themes",   APP_THEME,         ThemeApp_handler,  themes_createBtns);
+    app.add(MENU_settings, "Temp Rules", APP_TEMP_RULES,  temprule_handler,  temprule_createBtns);
 }
 
 // ---------------------------------------------------------------------------
@@ -177,6 +220,7 @@ void setup()
     Serial.begin(115200);
 
     RELAY_init();               // lights off at boot
+    TEMPCTL_begin();            // load the saved room-temperature rules (NVS)
 
     // Touch
     Wire.begin(GT911_SDA, GT911_SCL);
@@ -184,7 +228,7 @@ void setup()
     ts.setRotation(ROTATION_NORMAL);
 
     // Display
-    gfx->begin(16000000);
+    gfx->begin(PANEL_PCLK_HZ);
     applyPanelColorFixups();    // undo the table's inversion + set BGR order
     gfx->fillScreen(0x0000);   // black
     gfx->setTextWrap(false);
@@ -193,6 +237,10 @@ void setup()
 
     GUI_I.begin(gfxDisplay, gfxTouch, appButtons, menuButtons);
     GUI_I.setApp(&app);
+
+    // Weather icons are drawn with circle/line primitives the IDisplay
+    // interface does not carry, so they talk to Arduino_GFX directly.
+    wicon_begin(gfx);
 
     ThemeApp_setMenuRedraw(drawMenuBar);
     ThemeApp_begin();
@@ -226,6 +274,9 @@ void loop()
         lastMenu = nowMenu;
     }
 
+    TEMPCTL_tick();             // room-temperature rules drive the relays
     switches_tick();            // 30s return-to-Home after a light turns on
     home_tick();                // live clock + weather while the Home tab is showing
+    forecastApp_tick();         // rebuild the forecast page when new data lands
+    temprule_tick();            // live room temp + hold-to-repeat on Temp Rules
 }
