@@ -119,7 +119,14 @@ static void setRowLabels(void)
         }
     }
 
+    // With one page there is nothing to cycle to, so the button says so rather
+    // than looking like it failed to respond.
+    const bool multiPage = pageCount() > 1;
     b[IDX_MORE].setTextFormat("PAGE %u/%u", (unsigned)(s_page + 1), (unsigned)pageCount());
+    b[IDX_MORE].setClickable(multiPage);
+    b[IDX_MORE].setBgColor(multiPage ? gfxTheme.btnColor : gfxTheme.background);
+    b[IDX_MORE].setBorderColor(multiPage ? gfxTheme.btnBorder : gfxShade(gfxTheme.background, 20));
+    b[IDX_MORE].setTextColor(multiPage ? gfxTheme.btnText : gfxShade(gfxTheme.btnTextColor, -45));
 }
 
 // --- Scanning --------------------------------------------------------------
