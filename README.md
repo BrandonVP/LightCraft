@@ -37,9 +37,11 @@ The panel exposes power, setpoint (60–86 °F), mode (heat / cool / auto), fan
 two levels:
 
 - The **Control tab** carries only power and a large setpoint readout, because
-  changing the temperature is the daily job. **Tapping the card** opens the full
-  page; the buttons on the card still work as buttons, since the card face is
-  hit-tested underneath them.
+  changing the temperature is the daily job, with the mode and fan echoed along
+  the bottom. A **`>` in the top-right corner** marks it as openable, the same
+  cue the Home weather card uses; **tapping the card** opens the full page. The
+  buttons on the card still work as buttons, since the card face is hit-tested
+  underneath them.
 - The **full page** (`ClimateApp`) takes the whole screen for mode, fan and both
   blade axes, with room left for whatever the IR protocol turns out to expose.
 

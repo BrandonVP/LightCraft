@@ -28,8 +28,8 @@ Description : Control tab (see ControlApp.h).
 // keeps the LAST clickable button under the touch, so the controls win a tap
 // that lands on them while the rest of the card opens the full page.
 enum {
-    MS_CARD = 0, MS_TITLE, MS_STATUS, MS_POWER,
-    MS_MINUS, MS_SETPOINT, MS_PLUS, MS_HINT,
+    MS_CARD = 0, MS_TITLE, MS_CHEV, MS_POWER,
+    MS_MINUS, MS_SETPOINT, MS_PLUS, MS_STATUS,
     LIGHT_BASE,
     CTRL_BTN_COUNT = LIGHT_BASE + (int)LIGHT_COUNT * 2
 };
@@ -83,7 +83,7 @@ static void setStatusLabel(void)
     if (!MINISPLIT_isLinked()) { b.setText("no link");    return; }
 
     MiniSplitState s = MINISPLIT_get();
-    b.setTextFormat("%s  %s", MINISPLIT_modeName(s.mode), MINISPLIT_fanName(s.fan));
+    b.setTextFormat("%s    FAN %s", MINISPLIT_modeName(s.mode), MINISPLIT_fanName(s.fan));
 }
 
 // --- Lights ----------------------------------------------------------------
@@ -127,13 +127,17 @@ uint8_t control_createBtns(void)
     b[MS_CARD].setButton(MSC_X, MSC_Y, MSC_X + MSC_W, MSC_Y + MSC_H, CR_MS_CARD, true, 20,
                          "", ALIGN_CENTER, fill, fill, gfxTheme.btnBorder, fill);
 
-    b[MS_TITLE].setButton(44, 64, 180, 96, 0, true, 10, "Mini Split", ALIGN_LEFT, fill, fill, gfxTheme.btnTextColor);
+    b[MS_TITLE].setButton(44, 64, 200, 96, 0, true, 10, "Mini Split", ALIGN_LEFT, fill, fill, gfxTheme.btnTextColor);
     b[MS_TITLE].setTextSize(16);  b[MS_TITLE].setClickable(false);
 
-    b[MS_STATUS].setButton(186, 64, 330, 96, 0, true, 10, "", ALIGN_CENTER, fill, fill, dim);
-    b[MS_STATUS].setTextSize(16); b[MS_STATUS].setClickable(false);
+    // Top-right chevron, same cue as the Home weather card: the card opens.
+    // Not clickable — the card face underneath takes the tap.
+    b[MS_CHEV].setButton(404, 60, 444, 100, 0, true, 10, ">", ALIGN_CENTER,
+                         fill, fill, gfxShade(gfxTheme.btnTextColor, -25));
+    b[MS_CHEV].setTextSize(24);   b[MS_CHEV].setClickable(false);
 
-    b[MS_POWER].setButton(336, 60, 436, 100, CR_POWER, true, 14, "OFF", ALIGN_CENTER,
+    // Spaced well clear of the chevron so neither is mistaken for the other.
+    b[MS_POWER].setButton(286, 60, 386, 100, CR_POWER, true, 14, "OFF", ALIGN_CENTER,
                           gfxTheme.btnColor, gfxTheme.btnBorder, gfxTheme.btnText);
     b[MS_POWER].setTextSize(16);
 
@@ -149,11 +153,10 @@ uint8_t control_createBtns(void)
                          gfxTheme.btnColor, gfxTheme.btnBorder, gfxTheme.btnText);
     b[MS_PLUS].setTextSize(32);
 
-    // Says what the rest of the card does, rather than leaving a bare chevron
-    // to be interpreted.
-    b[MS_HINT].setButton(44, 206, 436, 232, 0, true, 10, "tap card for mode, fan, blades",
-                         ALIGN_CENTER, fill, fill, dim);
-    b[MS_HINT].setTextSize(16);   b[MS_HINT].setClickable(false);
+    // The settings that live on the full page, echoed along the bottom so they
+    // are still visible at a glance. This is where the chevron freed up room.
+    b[MS_STATUS].setButton(44, 206, 436, 232, 0, true, 10, "", ALIGN_CENTER, fill, fill, dim);
+    b[MS_STATUS].setTextSize(16); b[MS_STATUS].setClickable(false);
 
     // === Light row =========================================================
     GUI_I.drawCard(24, 248, 432, 224, 18, fill, shadow, 6);
@@ -185,8 +188,9 @@ static void refreshClimate(void)
 {
     styleClimate();
     setStatusLabel();
-    for (int i = MS_STATUS; i <= MS_SETPOINT; i++)
-        GUI_I.updateButton(i);
+    GUI_I.updateButton(MS_POWER);
+    GUI_I.updateButton(MS_SETPOINT);
+    GUI_I.updateButton(MS_STATUS);
     GUI_I.updateScreen();
 }
 
