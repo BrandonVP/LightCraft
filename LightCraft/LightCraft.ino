@@ -31,6 +31,7 @@
 
 #include "appConfig.h"          // GFX overrides + <EmbeddedGFX.h> + project enums
 #include <apps/ThemeApp.h>      // library theme picker
+#include <apps/KeyboardApp.h>   // library on-screen keyboard
 #include "ArduinoGFXAdapter.h"
 #include "GT911Adapter.h"
 #include "RelayControl.h"
@@ -41,6 +42,8 @@
 #include "ForecastApp.h"
 #include "TempControl.h"
 #include "TempRuleApp.h"
+#include "WiFiConfig.h"
+#include "WiFiApp.h"
 
 // Give the Arduino loop task extra stack headroom (draw call chains + WiFi).
 SET_LOOP_TASK_STACK_SIZE(16 * 1024);
@@ -212,6 +215,11 @@ void registerApps()
     app.add(MENU_settings, "Settings", APP_SETTINGS_MENU, GFX_menuInput,     settingsMenu_createBtns);
     app.add(MENU_settings, "Themes",   APP_THEME,         ThemeApp_handler,  themes_createBtns);
     app.add(MENU_settings, "Temp Rules", APP_TEMP_RULES,  temprule_handler,  temprule_createBtns);
+    app.add(MENU_settings, "WiFi",     APP_WIFI,          wifiApp_handler,   wifiApp_createBtns);
+
+    // On MENU_hidden so it never shows up in the Settings list — it is opened
+    // by whatever page needs a string, and returns there.
+    app.add(MENU_hidden,   "Keyboard", APP_KEYBOARD,      KeyboardApp_handler, KeyboardApp_createBtns);
 }
 
 // ---------------------------------------------------------------------------
@@ -246,6 +254,7 @@ void setup()
     ThemeApp_begin();
 
     home_seedClockFromBuild();   // placeholder clock until NTP syncs
+    WIFICFG_begin();             // saved credentials, or the secrets.h fallback
 #if WEATHER_ENABLE
     weather_begin();             // start WiFi (non-blocking); NTP + weather follow
 #endif
@@ -279,4 +288,5 @@ void loop()
     home_tick();                // live clock + weather while the Home tab is showing
     forecastApp_tick();         // rebuild the forecast page when new data lands
     temprule_tick();            // live room temp + hold-to-repeat on Temp Rules
+    wifiApp_tick();             // scan results + live link status on Settings > WiFi
 }
