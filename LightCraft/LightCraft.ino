@@ -7,8 +7,8 @@
                capacitive touch), built on the EmbeddedGFX library.
 
                Tabs:
-                 Home     - date / time / weather (placeholder; NTP+API later)
-                 Switches - three ON/OFF light toggles in a row
+                 Home     - date / time / weather (tap the card for a forecast)
+                 Control  - room mini-split, plus three ON/OFF light toggles
                  Settings - theme picker, room-temperature rules
 
                Behaviour: turning a light on (from the Switches tab) returns to
@@ -35,7 +35,8 @@
 #include "GT911Adapter.h"
 #include "RelayControl.h"
 #include "HomeApp.h"
-#include "SwitchesApp.h"
+#include "ControlApp.h"
+#include "MiniSplit.h"
 #include "WeatherTime.h"
 #include "WeatherIcons.h"
 #include "ForecastApp.h"
@@ -143,7 +144,7 @@ void applyPanelColorFixups()
 void createMenuBtns()
 {
     menuButtons[0].setButton(  5, 0, 158, 45, APP_HOME,          true, 0, "Home",     ALIGN_CENTER, gfxTheme.menuBg, gfxTheme.menuBg, gfxTheme.btnTextColor);
-    menuButtons[1].setButton(163, 0, 316, 45, APP_SWITCHES,      true, 0, "Switches", ALIGN_CENTER, gfxTheme.menuBg, gfxTheme.menuBg, gfxTheme.btnTextColor);
+    menuButtons[1].setButton(163, 0, 316, 45, APP_CONTROL,       true, 0, "Control",  ALIGN_CENTER, gfxTheme.menuBg, gfxTheme.menuBg, gfxTheme.btnTextColor);
     menuButtons[2].setButton(321, 0, 475, 45, APP_SETTINGS_MENU, true, 0, "Settings", ALIGN_CENTER, gfxTheme.menuBg, gfxTheme.menuBg, gfxTheme.btnTextColor);
     for (uint8_t i = 0; i < GFX_MENU_BUTTON_SIZE; i++) menuButtons[i].setTextSize(16);
 }
@@ -208,7 +209,7 @@ void registerApps()
 {
     app.add(MENU_home,     "Home",     APP_HOME,          home_handler,     home_createBtns);
     app.add(MENU_home,     "Forecast", APP_FORECAST,      forecastApp_handler, forecastApp_createBtns);
-    app.add(MENU_switches, "Switches", APP_SWITCHES,      switches_handler, switches_createBtns);
+    app.add(MENU_control,  "Control",  APP_CONTROL,       control_handler,  control_createBtns);
     app.add(MENU_settings, "Settings", APP_SETTINGS_MENU, GFX_menuInput,     settingsMenu_createBtns);
     app.add(MENU_settings, "Themes",   APP_THEME,         ThemeApp_handler,  themes_createBtns);
     app.add(MENU_settings, "Temp Rules", APP_TEMP_RULES,  temprule_handler,  temprule_createBtns);
@@ -221,6 +222,7 @@ void setup()
 
     RELAY_init();               // lights off at boot
     TEMPCTL_begin();            // load the saved room-temperature rules (NVS)
+    MINISPLIT_begin();          // load the last commanded mini-split state (NVS)
 
     // Touch
     Wire.begin(GT911_SDA, GT911_SCL);
@@ -275,7 +277,8 @@ void loop()
     }
 
     TEMPCTL_tick();             // room-temperature rules drive the relays
-    switches_tick();            // 30s return-to-Home after a light turns on
+    MINISPLIT_tick();           // send a coalesced mini-split frame once edits settle
+    control_tick();             // 30s return-to-Home after a light turns on
     home_tick();                // live clock + weather while the Home tab is showing
     forecastApp_tick();         // rebuild the forecast page when new data lands
     temprule_tick();            // live room temp + hold-to-repeat on Temp Rules

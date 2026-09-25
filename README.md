@@ -11,11 +11,46 @@ library.
   below with a drawn condition icon, the current outdoor reading from
   OpenWeatherMap, and the room reading from the LAN weather station. **Tap the
   weather card** for the 5-day forecast.
-- **Switches** — three ON/OFF light toggles in a row.
+- **Control** — the room mini-split on top, the three light toggles along the
+  bottom.
 - **Settings** — theme picker, temperature rules.
 
-**Behaviour:** turning a light on from the Switches tab returns to the Home tab
-30 seconds later.
+**Behaviour:** turning a light on from the Control tab returns to the Home tab
+30 seconds later. Any further tap on that tab pushes the timer out, so adjusting
+the mini-split is never interrupted mid-edit.
+
+## Mini-split control (Control tab) — IN PROGRESS
+
+> The UI, the shadow state and the save/coalesce logic are done. The transport
+> is not: `transmitState()` in `MiniSplit.cpp` only logs the frame it would
+> send, so the status line reads **no link** and nothing reaches the unit yet.
+
+The room unit is a **Della Vario (TL) `048-TL-18K2VB-21S-IN`**, driven over IR by
+a separate blaster node (M5StickS3 + Grove IR unit) reached over ESP-NOW. That
+hardware is on order. The WiFi/Tuya and AUX-serial routes were both rejected —
+Della's firmware drops WiFi every ~3 months and needs a re-pair (which rotates
+the local key), and this exact model reports zero frames on the AUX serial
+protocol.
+
+The panel exposes power, setpoint (60–86 °F), mode (heat / cool / auto), fan
+(auto / low / med / high) and vertical + horizontal blade movement.
+
+Two things follow from IR being **open loop**:
+
+- A remote sends its *complete* state on every press and the unit never answers,
+  so `MiniSplit.*` keeps a shadow copy and re-sends everything on any change.
+  Edits are coalesced after a 700 ms settle (three taps on the setpoint is one
+  frame, not three) and the state is saved to NVS so a reboot does not forget
+  it. It is also re-sent every 10 minutes in case a frame was missed.
+- The shadow **drifts** whenever the handheld remote or the Della app is used,
+  and the panel cannot tell. The planned fix is the node's IR receiver: decode
+  the remote's frames and push the real state back.
+
+The IR protocol is not identified yet — Della's older units are AUX (→ Electra
+in IRremoteESP8266), but the TL's TCL-branded WiFi board suggests the TCL family
+instead. An `IRrecvDumpV3` capture of the handheld remote settles it. Blade
+control is therefore modelled as fixed/swing with room to grow: the fields are
+`uint8_t`, not `bool`, in case the unit has discrete positions.
 
 ## Weather (Home) and the 5-day forecast
 
@@ -63,9 +98,9 @@ Fan     [ ABOVE ]   [ - ]  74°  [ + ]
   is only what makes it survive a reboot.
 
 Rules are **edge triggered**: a light is switched when the temperature crosses
-the setpoint, never held there. A manual tap on the Switches tab therefore
+the setpoint, never held there. A manual tap on the Control tab therefore
 always wins until the next crossing, and a light already under a rule shows it
-on its Switches label (`Fan >74°`). A 2 °F deadband on the release side keeps a
+on its Control-tab label (`Fan >74°`). A 2 °F deadband on the release side keeps a
 reading that hovers on the setpoint from chattering the relay, and the rules
 stop acting entirely if the room reading is missing or more than 5 minutes old.
 

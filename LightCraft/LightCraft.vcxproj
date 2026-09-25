@@ -78,7 +78,8 @@
     </ClCompile>
     <ClCompile Include="RelayControl.cpp" />
     <ClCompile Include="HomeApp.cpp" />
-    <ClCompile Include="SwitchesApp.cpp" />
+    <ClCompile Include="ControlApp.cpp" />
+    <ClCompile Include="MiniSplit.cpp" />
     <ClCompile Include="WeatherTime.cpp" />
     <ClCompile Include="TempControl.cpp" />
     <ClCompile Include="TempRuleApp.cpp" />
@@ -91,7 +92,8 @@
     <ClInclude Include="GT911Adapter.h" />
     <ClInclude Include="RelayControl.h" />
     <ClInclude Include="HomeApp.h" />
-    <ClInclude Include="SwitchesApp.h" />
+    <ClInclude Include="ControlApp.h" />
+    <ClInclude Include="MiniSplit.h" />
     <ClInclude Include="WeatherTime.h" />
     <ClInclude Include="TempControl.h" />
     <ClInclude Include="TempRuleApp.h" />

@@ -14,7 +14,7 @@ Description : Project configuration for LightCraft (ESP32-4848S040, 480x480).
 // --- Library configuration overrides (must precede <EmbeddedGFX.h>) --------
 #define GFX_SCREEN_WIDTH     480
 #define GFX_SCREEN_HEIGHT    480
-#define GFX_APP_BUTTON_SIZE  24   // busiest page: Temp Rules (17)
+#define GFX_APP_BUTTON_SIZE  32   // busiest page: Control (23)
 #define GFX_MENU_BUTTON_SIZE 3
 
 #include <EmbeddedGFX.h>
@@ -22,7 +22,7 @@ Description : Project configuration for LightCraft (ESP32-4848S040, 480x480).
 // --- Top menu tabs ---------------------------------------------------------
 enum Menus {
     MENU_home = 0,      // date / time / weather (+ the forecast sub-page)
-    MENU_switches,      // the 3 light toggles
+    MENU_control,       // mini-split + the 3 light toggles
     MENU_settings       // theme picker, temperature rules (+ room for more)
 };
 
@@ -30,7 +30,7 @@ enum Menus {
 enum AppLabels {
     APP_HOME = 0,        // Home tab (opens directly)
     APP_FORECAST,        // Home > 5-day forecast (tap the weather card)
-    APP_SWITCHES,        // Switches tab (opens directly)
+    APP_CONTROL,         // Control tab (opens directly): mini-split + lights
     APP_SETTINGS_MENU,   // Settings tab landing (lists settings apps)
     APP_THEME,           // Settings > Themes
     APP_TEMP_RULES,      // Settings > Temp Rules
