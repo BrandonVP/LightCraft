@@ -71,16 +71,19 @@ static void setStatusLabels(void)
 {
     UserInterfaceClass* b = GUI_I.appButtons();
 
-    if (WiFi.status() == WL_CONNECTED)
+    // Scanning first: while connected this is the only sign SCAN did anything,
+    // since the link state does not change and a re-scan often finds the same
+    // networks, leaving the list looking identical.
+    if (s_scanning)
+    {
+        b[IDX_STATUS1].setText("Scanning for networks...");
+        b[IDX_STATUS2].setText("");
+    }
+    else if (WiFi.status() == WL_CONNECTED)
     {
         b[IDX_STATUS1].setTextFormat("Connected: %.24s", WiFi.SSID().c_str());
         b[IDX_STATUS2].setTextFormat("%s   %d dBm",
                                      WiFi.localIP().toString().c_str(), (int)WiFi.RSSI());
-    }
-    else if (s_scanning)
-    {
-        b[IDX_STATUS1].setTextFormat("Scanning...");
-        b[IDX_STATUS2].setTextFormat("%.28s", WIFICFG_ssid());
     }
     else
     {
@@ -249,6 +252,7 @@ void wifiApp_handler(int userInput)
         startScan();
         setStatusLabels();
         GUI_I.updateButton(IDX_STATUS1);
+        GUI_I.updateButton(IDX_STATUS2);
         GUI_I.updateScreen();
         return;
     }
