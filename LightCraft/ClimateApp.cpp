@@ -20,10 +20,10 @@ Description : Full-screen mini-split page (see ClimateApp.h).
 
 // --- Button layout ---------------------------------------------------------
 enum {
-    IDX_BACK = 0, IDX_TITLE, IDX_STATUS, IDX_POWER,
+    IDX_BACK = 0, IDX_TITLE, IDX_STATUS,
     IDX_MINUS, IDX_SETPOINT, IDX_PLUS,
     IDX_MODE_LABEL,  IDX_MODE_0,
-    IDX_FAN_LABEL  = IDX_MODE_0 + (int)MS_MODE_COUNT,
+    IDX_FAN_LABEL  = IDX_MODE_0 + (int)MS_UI_MODE_COUNT,
     IDX_FAN_0,
     IDX_VERT_LABEL = IDX_FAN_0 + (int)MS_FAN_COUNT,
     IDX_VERT_0,
@@ -34,7 +34,6 @@ enum {
 
 // --- Click returns ---------------------------------------------------------
 static const int CR_BACK        = 1;
-static const int CR_POWER       = 10;
 static const int CR_TEMP_DOWN   = 11;
 static const int CR_TEMP_UP     = 12;
 static const int CR_MODE_BASE   = 20;
@@ -69,17 +68,22 @@ static void styleAll(void)
     UserInterfaceClass* b = GUI_I.appButtons();
     MiniSplitState s = MINISPLIT_get();
 
-    b[IDX_POWER].setText(s.power ? "ON" : "OFF");
-    b[IDX_POWER].setBgColor(s.power ? COL_ON : gfxTheme.btnColor);
-    b[IDX_POWER].setBorderColor(s.power ? COL_ON : gfxTheme.btnBorder);
-    b[IDX_POWER].setTextColor(s.power ? 0x0000 : gfxTheme.btnText);
-
     b[IDX_SETPOINT].setTextFormat("%d\xF8", s.setpointF);
 
-    for (uint8_t m = 0; m < MS_MODE_COUNT; m++)
+    // OFF is the first of four: it replaces a separate power button, so there
+    // is only ever one control saying whether the unit runs.
+    const uint8_t active = MINISPLIT_uiMode();
+    for (uint8_t m = 0; m < MS_UI_MODE_COUNT; m++)
     {
-        b[IDX_MODE_0 + m].setText(MINISPLIT_modeName(m));
-        styleSegment((uint8_t)(IDX_MODE_0 + m), m == s.mode);
+        UserInterfaceClass& mb = b[IDX_MODE_0 + m];
+        const bool selected = (m == active);
+
+        mb.setText(MINISPLIT_uiModeName(m));
+
+        const uint16_t accent = (m == 0) ? gfxTheme.btnBorder : gfxTheme.orangeBtn;
+        mb.setBgColor(selected ? accent : gfxTheme.btnColor);
+        mb.setBorderColor(selected ? accent : gfxTheme.btnBorder);
+        mb.setTextColor(selected ? ((m == 0) ? gfxTheme.btnText : 0x0000) : gfxTheme.btnText);
     }
 
     for (uint8_t f = 0; f < MS_FAN_COUNT; f++)
@@ -123,17 +127,13 @@ uint8_t climate_createBtns(void)
                           gfxTheme.btnColor, gfxTheme.btnBorder, gfxTheme.btnText);
     b[IDX_BACK].setTextSize(16);
 
-    b[IDX_TITLE].setButton(124, 56, 330, 80, 0, true, 8, "Mini Split", ALIGN_LEFT,
+    b[IDX_TITLE].setButton(124, 56, 456, 80, 0, true, 8, "Mini Split", ALIGN_LEFT,
                            gfxTheme.background, gfxTheme.background, gfxTheme.btnTextColor);
     b[IDX_TITLE].setTextSize(16);  b[IDX_TITLE].setClickable(false);
 
-    b[IDX_STATUS].setButton(124, 80, 330, 104, 0, true, 8, "", ALIGN_LEFT,
+    b[IDX_STATUS].setButton(124, 80, 456, 104, 0, true, 8, "", ALIGN_LEFT,
                             gfxTheme.background, gfxTheme.background, dim);
     b[IDX_STATUS].setTextSize(16); b[IDX_STATUS].setClickable(false);
-
-    b[IDX_POWER].setButton(336, 56, 456, 100, CR_POWER, true, 14, "OFF", ALIGN_CENTER,
-                           gfxTheme.btnColor, gfxTheme.btnBorder, gfxTheme.btnText);
-    b[IDX_POWER].setTextSize(16);
 
     // --- Setpoint ----------------------------------------------------------
     GUI_I.drawCard(24, 112, 432, 116, 18, fill, shadow, 5);
@@ -155,10 +155,10 @@ uint8_t climate_createBtns(void)
                                 gfxTheme.background, gfxTheme.background, dim);
     b[IDX_MODE_LABEL].setTextSize(16); b[IDX_MODE_LABEL].setClickable(false);
 
-    for (uint8_t m = 0; m < MS_MODE_COUNT; m++)
+    for (uint8_t m = 0; m < MS_UI_MODE_COUNT; m++)
     {
-        int x1 = 122 + m * 106;
-        b[IDX_MODE_0 + m].setButton(x1, 240, x1 + 100, 288, (uint16_t)(CR_MODE_BASE + m), true, 14,
+        int x1 = 122 + m * 80;
+        b[IDX_MODE_0 + m].setButton(x1, 240, x1 + 74, 288, (uint16_t)(CR_MODE_BASE + m), true, 14,
                                     "", ALIGN_CENTER, gfxTheme.btnColor, gfxTheme.btnBorder, gfxTheme.btnText);
         b[IDX_MODE_0 + m].setTextSize(16);
     }
@@ -225,13 +225,10 @@ void climate_handler(int userInput)
         return;
     }
 
-    MiniSplitState s = MINISPLIT_get();
-
-    if (userInput == CR_POWER)          MINISPLIT_setPower(!s.power);
-    else if (userInput == CR_TEMP_DOWN) MINISPLIT_adjustSetpoint(-1);
+    if (userInput == CR_TEMP_DOWN)      MINISPLIT_adjustSetpoint(-1);
     else if (userInput == CR_TEMP_UP)   MINISPLIT_adjustSetpoint(+1);
-    else if (userInput >= CR_MODE_BASE  && userInput < CR_MODE_BASE  + MS_MODE_COUNT)
-        MINISPLIT_setMode((uint8_t)(userInput - CR_MODE_BASE));
+    else if (userInput >= CR_MODE_BASE  && userInput < CR_MODE_BASE  + MS_UI_MODE_COUNT)
+        MINISPLIT_setUiMode((uint8_t)(userInput - CR_MODE_BASE));
     else if (userInput >= CR_FAN_BASE   && userInput < CR_FAN_BASE   + MS_FAN_COUNT)
         MINISPLIT_setFan((uint8_t)(userInput - CR_FAN_BASE));
     else if (userInput >= CR_VERT_BASE  && userInput < CR_VERT_BASE  + MS_SWING_COUNT)

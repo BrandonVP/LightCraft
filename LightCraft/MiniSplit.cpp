@@ -162,6 +162,34 @@ void MINISPLIT_setSwingH(uint8_t swing)
     touchState();
 }
 
+uint8_t MINISPLIT_uiMode(void)
+{
+    return s_state.power ? (uint8_t)(s_state.mode + 1) : 0;
+}
+
+void MINISPLIT_setUiMode(uint8_t uiMode)
+{
+    if (uiMode == 0)
+    {
+        // Leaves s_state.mode alone, so turning the unit back on returns to the
+        // mode it was running.
+        MINISPLIT_setPower(false);
+        return;
+    }
+
+    uint8_t mode = (uint8_t)(uiMode - 1);
+    if (mode >= MS_MODE_COUNT)
+        return;
+
+    MINISPLIT_setMode(mode);
+    MINISPLIT_setPower(true);
+}
+
+const char* MINISPLIT_uiModeName(uint8_t uiMode)
+{
+    return (uiMode == 0) ? "OFF" : MINISPLIT_modeName((uint8_t)(uiMode - 1));
+}
+
 void MINISPLIT_adjustSetpoint(int16_t deltaF)
 {
     int16_t want = (int16_t)(s_state.setpointF + deltaF);

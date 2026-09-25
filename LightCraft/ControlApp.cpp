@@ -28,9 +28,10 @@ Description : Control tab (see ControlApp.h).
 // keeps the LAST clickable button under the touch, so the controls win a tap
 // that lands on them while the rest of the card opens the full page.
 enum {
-    MS_CARD = 0, MS_TITLE, MS_CHEV, MS_POWER,
-    MS_MINUS, MS_SETPOINT, MS_PLUS, MS_STATUS,
-    LIGHT_BASE,
+    MS_CARD = 0, MS_TITLE, MS_CHEV, MS_STATUS,
+    MS_MINUS, MS_SETPOINT, MS_PLUS,
+    MS_MODE_0,
+    LIGHT_BASE = MS_MODE_0 + (int)MS_UI_MODE_COUNT,
     CTRL_BTN_COUNT = LIGHT_BASE + (int)LIGHT_COUNT * 2
 };
 
@@ -40,16 +41,16 @@ static uint8_t toggleIdx(uint8_t i) { return (uint8_t)(LIGHT_BASE + 2 * i + 1); 
 // --- Click returns ---------------------------------------------------------
 static const int SW_BASE      = 1;    // lights: 1..3
 static const int CR_MS_CARD   = 9;
-static const int CR_POWER     = 10;
 static const int CR_TEMP_DOWN = 11;
 static const int CR_TEMP_UP   = 12;
+static const int CR_MODE_BASE = 20;   // 20..23 (off, heat, cool, auto)
 
 static const uint32_t AUTO_RETURN_MS = 30000;   // back to Home after a light on
 static const uint16_t COL_ON         = 0x07E0;  // green when a light (or the unit) is on
 
 // Mini-split card geometry.
 static const int MSC_X = 24,  MSC_Y = 56;
-static const int MSC_W = 432, MSC_H = 180;
+static const int MSC_W = 432, MSC_H = 210;
 
 static uint32_t s_autoReturnAt = 0;             // 0 == disarmed
 
@@ -64,17 +65,28 @@ static void styleClimate(void)
 {
     UserInterfaceClass* b = GUI_I.appButtons();
     MiniSplitState s = MINISPLIT_get();
-
-    b[MS_POWER].setText(s.power ? "ON" : "OFF");
-    b[MS_POWER].setBgColor(s.power ? COL_ON : gfxTheme.btnColor);
-    b[MS_POWER].setBorderColor(s.power ? COL_ON : gfxTheme.btnBorder);
-    b[MS_POWER].setTextColor(s.power ? 0x0000 : gfxTheme.btnText);
+    const uint8_t active = MINISPLIT_uiMode();
 
     b[MS_SETPOINT].setTextFormat("%d\xF8", s.setpointF);
+
+    for (uint8_t m = 0; m < MS_UI_MODE_COUNT; m++)
+    {
+        UserInterfaceClass& mb = b[MS_MODE_0 + m];
+        const bool selected = (m == active);
+
+        mb.setText(MINISPLIT_uiModeName(m));
+
+        // OFF selected reads as "the unit is off", so it takes the same green
+        // the light toggles use for on/off state rather than the accent.
+        const uint16_t accent = (m == 0) ? gfxTheme.btnBorder : gfxTheme.orangeBtn;
+        mb.setBgColor(selected ? accent : gfxTheme.btnColor);
+        mb.setBorderColor(selected ? accent : gfxTheme.btnBorder);
+        mb.setTextColor(selected ? ((m == 0) ? gfxTheme.btnText : 0x0000) : gfxTheme.btnText);
+    }
 }
 
-// What the panel is doing, then whether it can reach the blaster node, then
-// the settings that live on the full page — so they are still visible here.
+// What the panel is doing, then whether it can reach the blaster node, then the
+// fan — the one setting that lives only on the full page.
 static void setStatusLabel(void)
 {
     UserInterfaceClass& b = GUI_I.appButtons()[MS_STATUS];
@@ -83,7 +95,7 @@ static void setStatusLabel(void)
     if (!MINISPLIT_isLinked()) { b.setText("no link");    return; }
 
     MiniSplitState s = MINISPLIT_get();
-    b.setTextFormat("%s    FAN %s", MINISPLIT_modeName(s.mode), MINISPLIT_fanName(s.fan));
+    b.setTextFormat("FAN %s", MINISPLIT_fanName(s.fan));
 }
 
 // --- Lights ----------------------------------------------------------------
@@ -127,8 +139,13 @@ uint8_t control_createBtns(void)
     b[MS_CARD].setButton(MSC_X, MSC_Y, MSC_X + MSC_W, MSC_Y + MSC_H, CR_MS_CARD, true, 20,
                          "", ALIGN_CENTER, fill, fill, gfxTheme.btnBorder, fill);
 
-    b[MS_TITLE].setButton(44, 64, 200, 96, 0, true, 10, "Mini Split", ALIGN_LEFT, fill, fill, gfxTheme.btnTextColor);
+    b[MS_TITLE].setButton(44, 64, 190, 98, 0, true, 10, "Mini Split", ALIGN_LEFT, fill, fill, gfxTheme.btnTextColor);
     b[MS_TITLE].setTextSize(16);  b[MS_TITLE].setClickable(false);
+
+    // Link state sits where the power button used to: mode OFF took over that
+    // job, so the slot was free for the thing that had nowhere else to go.
+    b[MS_STATUS].setButton(200, 64, 390, 98, 0, true, 10, "", ALIGN_CENTER, fill, fill, dim);
+    b[MS_STATUS].setTextSize(16); b[MS_STATUS].setClickable(false);
 
     // Top-right chevron, same cue as the Home weather card: the card opens.
     // Not clickable — the card face underneath takes the tap.
@@ -136,41 +153,40 @@ uint8_t control_createBtns(void)
                          fill, fill, gfxShade(gfxTheme.btnTextColor, -25));
     b[MS_CHEV].setTextSize(24);   b[MS_CHEV].setClickable(false);
 
-    // Spaced well clear of the chevron so neither is mistaken for the other.
-    b[MS_POWER].setButton(286, 60, 386, 100, CR_POWER, true, 14, "OFF", ALIGN_CENTER,
-                          gfxTheme.btnColor, gfxTheme.btnBorder, gfxTheme.btnText);
-    b[MS_POWER].setTextSize(16);
-
-    b[MS_MINUS].setButton(44, 110, 134, 198, CR_TEMP_DOWN, true, 16, "-", ALIGN_CENTER,
+    b[MS_MINUS].setButton(44, 114, 134, 188, CR_TEMP_DOWN, true, 16, "-", ALIGN_CENTER,
                           gfxTheme.btnColor, gfxTheme.btnBorder, gfxTheme.btnText);
     b[MS_MINUS].setTextSize(32);
 
-    b[MS_SETPOINT].setButton(144, 104, 336, 204, 0, true, 10, "--\xF8", ALIGN_CENTER,
+    b[MS_SETPOINT].setButton(144, 108, 336, 194, 0, true, 10, "--\xF8", ALIGN_CENTER,
                              fill, fill, gfxTheme.btnTextColor);
     b[MS_SETPOINT].setTextSize(48); b[MS_SETPOINT].setClickable(false);
 
-    b[MS_PLUS].setButton(346, 110, 436, 198, CR_TEMP_UP, true, 16, "+", ALIGN_CENTER,
+    b[MS_PLUS].setButton(346, 114, 436, 188, CR_TEMP_UP, true, 16, "+", ALIGN_CENTER,
                          gfxTheme.btnColor, gfxTheme.btnBorder, gfxTheme.btnText);
     b[MS_PLUS].setTextSize(32);
 
-    // The settings that live on the full page, echoed along the bottom so they
-    // are still visible at a glance. This is where the chevron freed up room.
-    b[MS_STATUS].setButton(44, 206, 436, 232, 0, true, 10, "", ALIGN_CENTER, fill, fill, dim);
-    b[MS_STATUS].setTextSize(16); b[MS_STATUS].setClickable(false);
+    // Mode along the bottom of the card: OFF | HEAT | COOL | AUTO.
+    for (uint8_t m = 0; m < MS_UI_MODE_COUNT; m++)
+    {
+        int x1 = 44 + m * 100;
+        b[MS_MODE_0 + m].setButton(x1, 204, x1 + 92, 254, (uint16_t)(CR_MODE_BASE + m), true, 14,
+                                   "", ALIGN_CENTER, gfxTheme.btnColor, gfxTheme.btnBorder, gfxTheme.btnText);
+        b[MS_MODE_0 + m].setTextSize(16);
+    }
 
     // === Light row =========================================================
-    GUI_I.drawCard(24, 248, 432, 224, 18, fill, shadow, 6);
+    GUI_I.drawCard(24, 278, 432, 194, 18, fill, shadow, 6);
 
     for (uint8_t i = 0; i < LIGHT_COUNT; i++)
     {
         int x1 = 40 + i * 137;
         int x2 = x1 + 125;
 
-        b[nameIdx(i)].setButton(x1, 258, x2, 290, 0, true, 10, "", ALIGN_CENTER, fill, fill, gfxTheme.btnTextColor);
+        b[nameIdx(i)].setButton(x1, 288, x2, 318, 0, true, 10, "", ALIGN_CENTER, fill, fill, gfxTheme.btnTextColor);
         b[nameIdx(i)].setTextSize(16);
         b[nameIdx(i)].setClickable(false);
 
-        b[toggleIdx(i)].setButton(x1, 296, x2, 462, (uint16_t)(SW_BASE + i), true, 16, "OFF", ALIGN_CENTER,
+        b[toggleIdx(i)].setButton(x1, 324, x2, 462, (uint16_t)(SW_BASE + i), true, 16, "OFF", ALIGN_CENTER,
                                   gfxTheme.btnColor, gfxTheme.btnBorder, gfxTheme.btnText);
         b[toggleIdx(i)].setTextSize(32);
 
@@ -188,9 +204,10 @@ static void refreshClimate(void)
 {
     styleClimate();
     setStatusLabel();
-    GUI_I.updateButton(MS_POWER);
     GUI_I.updateButton(MS_SETPOINT);
     GUI_I.updateButton(MS_STATUS);
+    for (uint8_t m = 0; m < MS_UI_MODE_COUNT; m++)
+        GUI_I.updateButton(MS_MODE_0 + m);
     GUI_I.updateScreen();
 }
 
@@ -233,11 +250,10 @@ void control_handler(int userInput)
         return;
     }
 
-    MiniSplitState s = MINISPLIT_get();
-
-    if (userInput == CR_POWER)          MINISPLIT_setPower(!s.power);
-    else if (userInput == CR_TEMP_DOWN) MINISPLIT_adjustSetpoint(-1);
+    if (userInput == CR_TEMP_DOWN)      MINISPLIT_adjustSetpoint(-1);
     else if (userInput == CR_TEMP_UP)   MINISPLIT_adjustSetpoint(+1);
+    else if (userInput >= CR_MODE_BASE && userInput < CR_MODE_BASE + MS_UI_MODE_COUNT)
+        MINISPLIT_setUiMode((uint8_t)(userInput - CR_MODE_BASE));
     else                                return;
 
     refreshClimate();

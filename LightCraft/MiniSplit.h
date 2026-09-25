@@ -79,6 +79,17 @@ void MINISPLIT_setSwingV(uint8_t swing);
 void MINISPLIT_setSwingH(uint8_t swing);
 void MINISPLIT_adjustSetpoint(int16_t deltaF);
 
+// --- Mode as the UI presents it --------------------------------------------
+// The panel shows one row of four: OFF, HEAT, COOL, AUTO. The device keeps
+// power and mode as separate fields because IR protocols encode them
+// separately, and because that way the running mode survives being switched
+// off and comes back on its own.
+#define MS_UI_MODE_COUNT (MS_MODE_COUNT + 1)
+
+uint8_t     MINISPLIT_uiMode(void);              // 0 = off, otherwise mode + 1
+void        MINISPLIT_setUiMode(uint8_t uiMode);
+const char* MINISPLIT_uiModeName(uint8_t uiMode);
+
 // True once the blaster node has been heard from. False until the hardware
 // exists, so the UI can say so rather than pretending a command landed.
 bool MINISPLIT_isLinked(void);

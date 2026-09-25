@@ -32,16 +32,21 @@ Della's firmware drops WiFi every ~3 months and needs a re-pair (which rotates
 the local key), and this exact model reports zero frames on the AUX serial
 protocol.
 
-The panel exposes power, setpoint (60–86 °F), mode (heat / cool / auto), fan
+The panel exposes setpoint (60–86 °F), mode (off / heat / cool / auto), fan
 (auto / low / med / high) and vertical + horizontal blade movement, split across
-two levels:
+two levels.
 
-- The **Control tab** carries only power and a large setpoint readout, because
-  changing the temperature is the daily job, with the mode and fan echoed along
-  the bottom. A **`>` in the top-right corner** marks it as openable, the same
-  cue the Home weather card uses; **tapping the card** opens the full page. The
-  buttons on the card still work as buttons, since the card face is hit-tested
-  underneath them.
+**OFF is the first entry in the mode row, not a separate power button** — one
+control, so there is never a power switch and a mode disagreeing on screen.
+Underneath, `MiniSplit` still keeps power and mode as separate fields, because
+IR protocols encode them separately and because that way the running mode
+survives being switched off and comes back on its own.
+
+- The **Control tab** carries a large setpoint readout and the mode row —
+  `OFF | HEAT | COOL | AUTO` — because those are the daily job. A **`>` in the
+  top-right corner** marks it as openable, the same cue the Home weather card
+  uses; **tapping the card** opens the full page. The buttons on the card still
+  work as buttons, since the card face is hit-tested underneath them.
 - The **full page** (`ClimateApp`) takes the whole screen for mode, fan and both
   blade axes, with room left for whatever the IR protocol turns out to expose.
 
