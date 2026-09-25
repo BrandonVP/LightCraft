@@ -53,6 +53,10 @@ struct ForecastDay
 // Returns immediately; all blocking work happens on the task, not the UI loop.
 void weather_begin();
 
+// Re-associate using whatever WiFiConfig now holds. Call after saving new
+// credentials; the reconnect happens on the network task, not the caller.
+void weather_reconnect();
+
 bool weather_isConnected();          // WiFi associated
 bool weather_timeValid();            // NTP has produced a real wall-clock time
 WeatherData weather_get();           // thread-safe snapshot of the latest reading

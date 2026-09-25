@@ -9,6 +9,7 @@ Description : WiFi + NTP + OpenWeatherMap (see WeatherTime.h). All network work
 ===========================================================================
 */
 #include "WeatherTime.h"
+#include "WiFiConfig.h"
 #include "secrets.h"
 
 #include <WiFi.h>
@@ -46,6 +47,7 @@ static ForecastDay       s_days[FORECAST_DAYS] = {};
 static volatile uint32_t s_forecastCount = 0;
 static volatile bool     s_forecastWanted = false;
 static volatile uint32_t s_forecastStampMs = 0;
+static volatile bool     s_reconnectWanted = false;
 
 // A forecast younger than this is good enough to show as-is; opening the page
 // then costs no fetch, and no on-screen update.
@@ -305,7 +307,9 @@ static void weatherTask(void*)
     WiFi.mode(WIFI_STA);
     WiFi.setAutoReconnect(true);
     WiFi.persistent(false);
-    WiFi.begin(WIFI_SSID, WIFI_PASSWORD);
+    // Credentials come from WiFiConfig (NVS, falling back to secrets.h), not
+    // from compiled-in macros — Settings > WiFi can change them at runtime.
+    WiFi.begin(WIFICFG_ssid(), WIFICFG_password());
     // WiFi modem power-save glitches the RGB panel scanout — keep the radio steady.
     WiFi.setSleep(false);
 
@@ -320,6 +324,23 @@ static void weatherTask(void*)
 
     for (;;)
     {
+        // Settings > WiFi saved a different network: drop the association and
+        // come up on the new one. Done here rather than from the UI core so all
+        // WiFi calls stay on this task.
+        if (s_reconnectWanted)
+        {
+            s_reconnectWanted = false;
+            Serial.printf("[WiFi] reconnecting to '%s'\n", WIFICFG_ssid());
+
+            WiFi.disconnect(false /* keep the radio on */, true /* erase old config */);
+            vTaskDelay(pdMS_TO_TICKS(200));
+            WiFi.begin(WIFICFG_ssid(), WIFICFG_password());
+
+            // Force the on-connect work (NTP + a fetch) to run again.
+            wasConnected  = false;
+            everConnected = false;
+        }
+
         bool connected = (WiFi.status() == WL_CONNECTED);
 
         if (connected != wasConnected)
@@ -358,6 +379,11 @@ static void weatherTask(void*)
 
         vTaskDelay(pdMS_TO_TICKS(500));
     }
+}
+
+void weather_reconnect()
+{
+    s_reconnectWanted = true;
 }
 
 void weather_begin()

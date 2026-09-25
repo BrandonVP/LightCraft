@@ -1,4 +1,4 @@
-<?xml version="1.0" encoding="utf-8"?>
+﻿<?xml version="1.0" encoding="utf-8"?>
 <Project DefaultTargets="Build" ToolsVersion="15.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <ItemGroup Label="ProjectConfigurations">
     <ProjectConfiguration Include="Debug|ARM">
@@ -80,6 +80,8 @@
     <ClCompile Include="HomeApp.cpp" />
     <ClCompile Include="SwitchesApp.cpp" />
     <ClCompile Include="WeatherTime.cpp" />
+    <ClCompile Include="WiFiConfig.cpp" />
+    <ClCompile Include="WiFiApp.cpp" />
     <ClCompile Include="TempControl.cpp" />
     <ClCompile Include="TempRuleApp.cpp" />
     <ClCompile Include="WeatherIcons.cpp" />
@@ -93,6 +95,8 @@
     <ClInclude Include="HomeApp.h" />
     <ClInclude Include="SwitchesApp.h" />
     <ClInclude Include="WeatherTime.h" />
+    <ClInclude Include="WiFiConfig.h" />
+    <ClInclude Include="WiFiApp.h" />
     <ClInclude Include="TempControl.h" />
     <ClInclude Include="TempRuleApp.h" />
     <ClInclude Include="WeatherIcons.h" />

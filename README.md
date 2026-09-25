@@ -12,7 +12,7 @@ library.
   OpenWeatherMap, and the room reading from the LAN weather station. **Tap the
   weather card** for the 5-day forecast.
 - **Switches** — three ON/OFF light toggles in a row.
-- **Settings** — theme picker, temperature rules.
+- **Settings** — theme picker, temperature rules, WiFi.
 
 **Behaviour:** turning a light on from the Switches tab returns to the Home tab
 30 seconds later.
@@ -45,6 +45,56 @@ overlapping circles without leaving interior arcs.
 This is the one app-layer module that calls Arduino_GFX directly: EmbeddedGFX's
 `IDisplay` carries only rect/round-rect primitives, and these need circles and
 lines. `wicon_begin(gfx)` in `setup()` binds the surface.
+
+## WiFi setup (Settings > WiFi)
+
+The network is picked on the panel, not compiled in. The page shows the current
+link, scans for networks, and on a tap opens the library's on-screen keyboard
+for the password. What you choose is saved to NVS and the network task
+re-associates with it — no reflash.
+
+```
+Connected: MyNetwork
+192.168.68.52   -58 dBm
+
+MyNetwork            *  -58
+Neighbour-5G         *  -71
+CoffeeShop              -80
+
+[ SCAN ]  [ PAGE 1/2 ]  [ FORGET ]
+```
+
+`*` marks a secured network; the number is dBm. Open networks are saved and
+joined without asking for a password. **FORGET** drops the saved network and
+falls back to `secrets.h`.
+
+`WIFI_SSID` / `WIFI_PASSWORD` in `secrets.h` are now a **fallback, not the
+source of truth**: they are used only until a network is chosen on the panel, so
+a freshly flashed board still comes up exactly as before. Leave them blank if
+you would rather set the network on the device.
+
+Scanning is asynchronous (`WiFi.scanNetworks(true)`) and collected in the tick —
+a synchronous scan would block the UI loop for seconds. Note that scanning makes
+the radio hop channels, so a weather fetch in flight may fail; it simply retries.
+
+### The on-screen keyboard
+
+`KeyboardApp` lives in **EmbeddedGFX**, not here, so any project on the library
+gets it. A 10x4 grid with lowercase, uppercase and symbol layers, plus shift,
+layer, space, backspace, cancel and accept; up to 64 characters, optionally
+masked. It lays itself out from the display's real dimensions, so it works on a
+480x480 or a 480x320 panel.
+
+It is registered on `MENU_hidden` — a menu with no tab — so it never shows up in
+the generated Settings list. A caller arms it and switches to it:
+
+```c
+KeyboardApp_open("Password: MyAP", "", 63, true, APP_WIFI, onPasswordEntered);
+app->newApp(APP_KEYBOARD);
+```
+
+It needs 48 app-button slots, which is why `GFX_APP_BUTTON_SIZE` is 56. There is
+a `static_assert` in `WiFiApp.cpp` guarding that.
 
 ## Temperature rules (Settings > Temp Rules)
 
