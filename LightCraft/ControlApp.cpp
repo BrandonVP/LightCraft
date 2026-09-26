@@ -58,7 +58,7 @@ static uint32_t s_autoReturnAt = 0;             // 0 == disarmed
 // temperature rules rather than by a tap.
 static bool s_shownOn[LIGHT_COUNT];
 
-static uint16_t cardFill(void) { return gfxShade(gfxTheme.background, 15); }
+static uint16_t cardFill(void) { return gfxCardFill(gfxTheme.background); }
 
 // --- Mini-split ------------------------------------------------------------
 static void styleClimate(void)

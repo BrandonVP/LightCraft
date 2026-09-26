@@ -34,7 +34,7 @@ static const int WCARD_X = 24,  WCARD_Y = 206;
 static const int WCARD_W = 432, WCARD_H = 246;
 static const int ICON_CX = 104, ICON_CY = 300, ICON_SIZE = 92;
 
-static uint16_t cardFill(void) { return gfxShade(gfxTheme.background, 15); }
+static uint16_t cardFill(void) { return gfxCardFill(gfxTheme.background); }
 
 // Icon currently painted on the card, so it is only redrawn when it changes.
 static WeatherIcon s_shownIcon = WICON_NONE;

@@ -43,7 +43,7 @@ static const int CR_HORIZ_BASE  = 50;
 
 static const uint16_t COL_ON = 0x07E0;   // green, same as the light toggles
 
-static uint16_t cardFill(void) { return gfxShade(gfxTheme.background, 15); }
+static uint16_t cardFill(void) { return gfxCardFill(gfxTheme.background); }
 
 // --- Styling ---------------------------------------------------------------
 static void styleSegment(uint8_t index, bool selected)

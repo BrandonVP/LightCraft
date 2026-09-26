@@ -52,7 +52,7 @@ static bool     s_repeated     = false; // suppress the extra step on release
 static int16_t s_shownRoomF   = INT16_MIN;
 static bool    s_shownRoomOk  = false;
 
-static uint16_t cardFill(void) { return gfxShade(gfxTheme.background, 15); }
+static uint16_t cardFill(void) { return gfxCardFill(gfxTheme.background); }
 
 // --- Label helpers (set text only, no drawing) -----------------------------
 static void setStatusLabel(void)

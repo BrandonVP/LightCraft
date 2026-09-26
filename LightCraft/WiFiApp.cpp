@@ -58,7 +58,7 @@ static bool    s_scanning = false;
 // SSID awaiting a password from the keyboard.
 static char s_pendingSsid[WIFICFG_SSID_LEN];
 
-static uint16_t cardFill(void) { return gfxShade(gfxTheme.background, 15); }
+static uint16_t cardFill(void) { return gfxCardFill(gfxTheme.background); }
 
 static uint8_t pageCount(void)
 {
