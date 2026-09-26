@@ -16,8 +16,11 @@ struct ToggleRow {
     void (*set)(bool);
 };
 
+// Label and hint share the left column; keep both within TEXT_CHARS (below) or
+// they run under the toggle. They are drawn truncated rather than clipped, so
+// an over-long one is visibly cut instead of spilling across the row.
 static const ToggleRow ROWS[] = {
-    { "Mini-split card", "shown on the Control tab", GSET_minisplitCard, GSET_setMinisplitCard },
+    { "Mini-split card", "on the Control tab", GSET_minisplitCard, GSET_setMinisplitCard },
 };
 
 static const uint8_t ROW_COUNT = (uint8_t)(sizeof(ROWS) / sizeof(ROWS[0]));
@@ -38,6 +41,12 @@ static const int CR_TOGGLE_BASE = 1;
 static const int ROW_Y0     = 104;
 static const int ROW_PITCH  = 100;
 static const int ROW_HEIGHT = 90;
+
+// Left column holding the label and hint, and how much text fits in it. The
+// built-in font is 6 px per character at 1x and text size 16 renders at 2x, so
+// 12 px; ALIGN_LEFT insets the first character by 5.
+static const int TEXT_X1 = 44, TEXT_X2 = 320;
+static const int TEXT_CHARS = (TEXT_X2 - TEXT_X1 - 5) / 12;   // 22
 
 static const uint16_t COL_ON = 0x07E0;   // green, as everywhere else on/off shows
 
@@ -72,13 +81,15 @@ uint8_t general_createBtns(void)
 
         GUI_I.drawCard(24, y, 432, ROW_HEIGHT, 16, fill, shadow, 5);
 
-        b[rowIdx(i, COL_LABEL)].setButton(44, y + 16, 320, y + 46, 0, true, 10,
-                                          ROWS[i].label, ALIGN_LEFT, fill, fill, gfxTheme.btnTextColor);
+        b[rowIdx(i, COL_LABEL)].setButton(TEXT_X1, y + 16, TEXT_X2, y + 46, 0, true, 10,
+                                          "", ALIGN_LEFT, fill, fill, gfxTheme.btnTextColor);
+        b[rowIdx(i, COL_LABEL)].setTextFormat("%.*s", TEXT_CHARS, ROWS[i].label);
         b[rowIdx(i, COL_LABEL)].setTextSize(16);
         b[rowIdx(i, COL_LABEL)].setClickable(false);
 
-        b[rowIdx(i, COL_HINT)].setButton(44, y + 48, 320, y + 76, 0, true, 10,
-                                         ROWS[i].hint, ALIGN_LEFT, fill, fill, dim);
+        b[rowIdx(i, COL_HINT)].setButton(TEXT_X1, y + 48, TEXT_X2, y + 76, 0, true, 10,
+                                         "", ALIGN_LEFT, fill, fill, dim);
+        b[rowIdx(i, COL_HINT)].setTextFormat("%.*s", TEXT_CHARS, ROWS[i].hint);
         b[rowIdx(i, COL_HINT)].setTextSize(16);
         b[rowIdx(i, COL_HINT)].setClickable(false);
 
