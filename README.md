@@ -99,6 +99,40 @@ This is the one app-layer module that calls Arduino_GFX directly: EmbeddedGFX's
 `IDisplay` carries only rect/round-rect primitives, and these need circles and
 lines. `wicon_begin(gfx)` in `setup()` binds the surface.
 
+## Backlight (Settings > Display)
+
+The panel is mains powered and never sleeps, so left alone it used to glow at
+full brightness all night — `GFX_BL` was simply held HIGH. It is now driven with
+LEDC PWM: full while someone is using it, fading to the idle level after a
+period with no touch, and straight back up on any touch.
+
+```
+Display
+
+  Brightness    [ - ]  100%  [ + ]
+  Dim to        [ - ]   15%  [ + ]
+  Dim after     [ - ]   30s  [ + ]
+```
+
+- **Dim to 0%** blacks the panel out. The touch that wakes a dark screen is
+  swallowed, so finding the panel in the dark cannot press whatever was under
+  your finger. Above 0% the screen stays readable and taps act normally.
+- **Dim after** runs from 10s to 10m, or Off to never dim.
+
+A short timeout does most of what a night schedule would — the screen is only
+bright when somebody is standing at it — so there is no clock-based rule here.
+
+Two implementation notes. Percentages are **perceived** brightness, squared on
+the way to duty, because brightness tracks roughly the square of duty: 15%
+lands at 2% duty, which is genuinely dim rather than "still lighting the room".
+And the fade is stepped in `BACKLIGHT_tick()` rather than handed to the core's
+`ledcFade()`, which leans on an ISR — a non-IRAM-safe ISR is what crashed this
+board over the RGB bounce buffer, and there is no reason to invite it back for
+something this cheap.
+
+Costs no radio and no flash traffic, so unlike most additions it cannot make
+the scanout glitching worse.
+
 ## General preferences (Settings > General)
 
 On/off preferences that shape the UI, saved to NVS as a bit field so adding one

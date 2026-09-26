@@ -48,6 +48,8 @@
 #include "WiFiApp.h"
 #include "GeneralSettings.h"
 #include "GeneralApp.h"
+#include "Backlight.h"
+#include "DisplayApp.h"
 
 // Give the Arduino loop task extra stack headroom (draw call chains + WiFi).
 SET_LOOP_TASK_STACK_SIZE(16 * 1024);
@@ -219,6 +221,7 @@ void registerApps()
     app.add(MENU_control,  "Climate",  APP_CLIMATE,       climate_handler,  climate_createBtns);
     app.add(MENU_settings, "Settings", APP_SETTINGS_MENU, GFX_menuInput,     settingsMenu_createBtns);
     app.add(MENU_settings, "General",  APP_GENERAL,       general_handler,   general_createBtns);
+    app.add(MENU_settings, "Display",  APP_DISPLAY,       display_handler,   display_createBtns);
     app.add(MENU_settings, "Themes",   APP_THEME,         ThemeApp_handler,  themes_createBtns);
     app.add(MENU_settings, "Temp Rules", APP_TEMP_RULES,  temprule_handler,  temprule_createBtns);
     app.add(MENU_settings, "WiFi",     APP_WIFI,          wifiApp_handler,   wifiApp_createBtns);
@@ -248,8 +251,7 @@ void setup()
     applyPanelColorFixups();    // undo the table's inversion + set BGR order
     gfx->fillScreen(0x0000);   // black
     gfx->setTextWrap(false);
-    pinMode(GFX_BL, OUTPUT);
-    digitalWrite(GFX_BL, HIGH);
+    BACKLIGHT_begin(GFX_BL);    // PWM, not a plain HIGH: dims when left alone
 
     GUI_I.begin(gfxDisplay, gfxTouch, appButtons, menuButtons);
     GUI_I.setApp(&app);
@@ -278,6 +280,18 @@ void loop()
 {
     GUI_I.buttonMonitor(menuButtons, GFX_MENU_BUTTON_SIZE);
     GUI_I.updateTouch();
+
+    // Backlight: any touch wakes the panel, and it dims again once left alone.
+    // A tap that wakes a blacked-out screen is swallowed here, before app.run()
+    // or the next buttonMonitor can see it — otherwise finding the panel in the
+    // dark would press whatever happened to be under your finger.
+    BACKLIGHT_tick(GUI_I.isTouched());
+    if (BACKLIGHT_swallowTouch())
+    {
+        GUI_I.setTouchedBody(false);
+        GUI_I.setTouchedMenu(false);
+    }
+
     app.run();
 
     // Redraw the whole menu bar when the active tab changes, so the header

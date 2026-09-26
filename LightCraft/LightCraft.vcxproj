@@ -82,6 +82,8 @@
     <ClCompile Include="ClimateApp.cpp" />
     <ClCompile Include="GeneralSettings.cpp" />
     <ClCompile Include="GeneralApp.cpp" />
+    <ClCompile Include="Backlight.cpp" />
+    <ClCompile Include="DisplayApp.cpp" />
     <ClCompile Include="MiniSplit.cpp" />
     <ClCompile Include="WeatherTime.cpp" />
     <ClCompile Include="WiFiConfig.cpp" />
@@ -101,6 +103,8 @@
     <ClInclude Include="ClimateApp.h" />
     <ClInclude Include="GeneralSettings.h" />
     <ClInclude Include="GeneralApp.h" />
+    <ClInclude Include="Backlight.h" />
+    <ClInclude Include="DisplayApp.h" />
     <ClInclude Include="MiniSplit.h" />
     <ClInclude Include="WeatherTime.h" />
     <ClInclude Include="WiFiConfig.h" />
