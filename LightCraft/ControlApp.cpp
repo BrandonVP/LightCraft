@@ -20,6 +20,7 @@ Description : Control tab (see ControlApp.h).
 #include "RelayControl.h"
 #include "TempControl.h"
 #include "MiniSplit.h"
+#include "GeneralSettings.h"
 #include <App.h>
 
 // --- Button layout ---------------------------------------------------------
@@ -131,6 +132,23 @@ uint8_t control_createBtns(void)
     const uint16_t shadow = 0x0000;
     const uint16_t dim    = gfxShade(gfxTheme.btnTextColor, -30);
 
+    // Settings > General can hide the mini-split. Rather than renumber the
+    // buttons, its slots are left in place but made neither printable nor
+    // clickable — drawPage skips the first and subMenuButtonMonitor the second,
+    // so the light row keeps its indices either way.
+    const bool showMiniSplit = GSET_minisplitCard();
+
+    if (!showMiniSplit)
+    {
+        for (int i = MS_CARD; i < LIGHT_BASE; i++)
+        {
+            b[i].setPrintable(false);
+            b[i].setClickable(false);
+        }
+    }
+    else
+    {
+
     // === Mini-split card (tappable) ========================================
     // Shadow from drawCard; the face is the button itself, so the whole card
     // highlights when tapped.
@@ -174,19 +192,28 @@ uint8_t control_createBtns(void)
         b[MS_MODE_0 + m].setTextSize(16);
     }
 
+    }   // showMiniSplit
+
     // === Light row =========================================================
-    GUI_I.drawCard(24, 278, 432, 194, 18, fill, shadow, 6);
+    // Takes the whole tab when the mini-split card is hidden.
+    const int cardY  = showMiniSplit ? 278 : 56;
+    const int cardH  = showMiniSplit ? 194 : 416;
+    const int nameY  = showMiniSplit ? 288 : 80;
+    const int togTop = showMiniSplit ? 324 : 124;
+    const int togBot = showMiniSplit ? 462 : 448;
+
+    GUI_I.drawCard(24, cardY, 432, cardH, 18, fill, shadow, 6);
 
     for (uint8_t i = 0; i < LIGHT_COUNT; i++)
     {
         int x1 = 40 + i * 137;
         int x2 = x1 + 125;
 
-        b[nameIdx(i)].setButton(x1, 288, x2, 318, 0, true, 10, "", ALIGN_CENTER, fill, fill, gfxTheme.btnTextColor);
+        b[nameIdx(i)].setButton(x1, nameY, x2, nameY + 30, 0, true, 10, "", ALIGN_CENTER, fill, fill, gfxTheme.btnTextColor);
         b[nameIdx(i)].setTextSize(16);
         b[nameIdx(i)].setClickable(false);
 
-        b[toggleIdx(i)].setButton(x1, 324, x2, 462, (uint16_t)(SW_BASE + i), true, 16, "OFF", ALIGN_CENTER,
+        b[toggleIdx(i)].setButton(x1, togTop, x2, togBot, (uint16_t)(SW_BASE + i), true, 16, "OFF", ALIGN_CENTER,
                                   gfxTheme.btnColor, gfxTheme.btnBorder, gfxTheme.btnText);
         b[toggleIdx(i)].setTextSize(32);
 
@@ -194,8 +221,11 @@ uint8_t control_createBtns(void)
         styleToggle(i);
     }
 
-    styleClimate();
-    setStatusLabel();
+    if (showMiniSplit)
+    {
+        styleClimate();
+        setStatusLabel();
+    }
 
     return CTRL_BTN_COUNT;
 }
@@ -279,7 +309,7 @@ void control_tick(void)
 
         // Status line: "sending..." clears itself once the frame goes out.
         static uint32_t lastStatusMs = 0;
-        if (millis() - lastStatusMs >= 250)
+        if (GSET_minisplitCard() && millis() - lastStatusMs >= 250)
         {
             lastStatusMs = millis();
 

@@ -13,7 +13,7 @@ library.
   weather card** for the 5-day forecast.
 - **Control** — the room mini-split on top, the three light toggles along the
   bottom.
-- **Settings** — theme picker, temperature rules, WiFi.
+- **Settings** — general preferences, theme picker, temperature rules, WiFi.
 
 **Behaviour:** turning a light on from the Control tab returns to the Home tab
 30 seconds later. Any further tap on that tab pushes the timer out, so adjusting
@@ -98,6 +98,22 @@ overlapping circles without leaving interior arcs.
 This is the one app-layer module that calls Arduino_GFX directly: EmbeddedGFX's
 `IDisplay` carries only rect/round-rect primitives, and these need circles and
 lines. `wicon_begin(gfx)` in `setup()` binds the surface.
+
+## General preferences (Settings > General)
+
+On/off preferences that shape the UI, saved to NVS as a bit field so adding one
+costs a flag rather than a new key. The rows come from a table in
+`GeneralApp.cpp`, so a new preference is one entry there plus its getter and
+setter in `GeneralSettings.*`.
+
+Currently one: **Mini-split card**. Turning it off hides the card from the
+Control tab and the light switches take the whole tab — their toggles go from
+138 px to 324 px tall. The mini-split's slots in the shared button array are
+kept but marked neither printable nor clickable, so the light row keeps its
+indices and nothing has to be renumbered for the two layouts.
+
+Hiding the card is presentational only: `MiniSplit` keeps its state and still
+sends, so turning the card back on returns to exactly where the unit was left.
 
 ## WiFi setup (Settings > WiFi)
 

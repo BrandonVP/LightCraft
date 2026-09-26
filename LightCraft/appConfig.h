@@ -35,6 +35,7 @@ enum AppLabels {
     APP_CONTROL,         // Control tab (opens directly): mini-split + lights
     APP_CLIMATE,         // Control > full mini-split page (tap the card)
     APP_SETTINGS_MENU,   // Settings tab landing (lists settings apps)
+    APP_GENERAL,         // Settings > General
     APP_THEME,           // Settings > Themes
     APP_TEMP_RULES,      // Settings > Temp Rules
     APP_WIFI,            // Settings > WiFi
