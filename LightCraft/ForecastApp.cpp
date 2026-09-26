@@ -39,7 +39,7 @@ static const int ICON_SIZE  = 52;
 
 static uint32_t s_shownCount = 0xFFFFFFFFu;   // forecast revision on screen
 
-static uint16_t cardFill(void) { return gfxShade(gfxTheme.background, 15); }
+static uint16_t cardFill(void) { return gfxCardFill(gfxTheme.background); }
 
 static inline int rowY(uint8_t i) { return ROW_Y0 + i * ROW_PITCH; }
 

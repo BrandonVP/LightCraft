@@ -11,11 +11,64 @@ library.
   below with a drawn condition icon, the current outdoor reading from
   OpenWeatherMap, and the room reading from the LAN weather station. **Tap the
   weather card** for the 5-day forecast.
-- **Switches** — three ON/OFF light toggles in a row.
-- **Settings** — theme picker, temperature rules, WiFi.
+- **Control** — the room mini-split on top, the three light toggles along the
+  bottom.
+- **Settings** — general preferences, theme picker, temperature rules, WiFi.
 
-**Behaviour:** turning a light on from the Switches tab returns to the Home tab
-30 seconds later.
+**Behaviour:** turning a light on from the Control tab returns to the Home tab
+30 seconds later. Any further tap on that tab pushes the timer out, so adjusting
+the mini-split is never interrupted mid-edit.
+
+## Mini-split control (Control tab) — IN PROGRESS
+
+> The UI, the shadow state and the save/coalesce logic are done. The transport
+> is not: `transmitState()` in `MiniSplit.cpp` only logs the frame it would
+> send, so the status line reads **no link** and nothing reaches the unit yet.
+
+The room unit is a **Della Vario (TL) `048-TL-18K2VB-21S-IN`**, driven over IR by
+a separate blaster node (M5StickS3 + Grove IR unit) reached over ESP-NOW. That
+hardware is on order. The WiFi/Tuya and AUX-serial routes were both rejected —
+Della's firmware drops WiFi every ~3 months and needs a re-pair (which rotates
+the local key), and this exact model reports zero frames on the AUX serial
+protocol.
+
+The panel exposes setpoint (60–86 °F), mode (off / heat / cool / auto), fan
+(auto / low / med / high) and vertical + horizontal blade movement, split across
+two levels.
+
+**OFF is the first entry in the mode row, not a separate power button** — one
+control, so there is never a power switch and a mode disagreeing on screen.
+Underneath, `MiniSplit` still keeps power and mode as separate fields, because
+IR protocols encode them separately and because that way the running mode
+survives being switched off and comes back on its own.
+
+- The **Control tab** carries a large setpoint readout and the mode row —
+  `OFF | HEAT | COOL | AUTO` — because those are the daily job. A **`>` in the
+  top-right corner** marks it as openable, the same cue the Home weather card
+  uses; **tapping the card** opens the full page. The buttons on the card still
+  work as buttons, since the card face is hit-tested underneath them.
+- The **full page** (`ClimateApp`) takes the whole screen for mode, fan and both
+  blade axes, with room left for whatever the IR protocol turns out to expose.
+
+That split is also what pays for the much larger light toggles at the bottom of
+the Control tab.
+
+Two things follow from IR being **open loop**:
+
+- A remote sends its *complete* state on every press and the unit never answers,
+  so `MiniSplit.*` keeps a shadow copy and re-sends everything on any change.
+  Edits are coalesced after a 700 ms settle (three taps on the setpoint is one
+  frame, not three) and the state is saved to NVS so a reboot does not forget
+  it. It is also re-sent every 10 minutes in case a frame was missed.
+- The shadow **drifts** whenever the handheld remote or the Della app is used,
+  and the panel cannot tell. The planned fix is the node's IR receiver: decode
+  the remote's frames and push the real state back.
+
+The IR protocol is not identified yet — Della's older units are AUX (→ Electra
+in IRremoteESP8266), but the TL's TCL-branded WiFi board suggests the TCL family
+instead. An `IRrecvDumpV3` capture of the handheld remote settles it. Blade
+control is therefore modelled as fixed/swing with room to grow: the fields are
+`uint8_t`, not `bool`, in case the unit has discrete positions.
 
 ## Weather (Home) and the 5-day forecast
 
@@ -45,6 +98,22 @@ overlapping circles without leaving interior arcs.
 This is the one app-layer module that calls Arduino_GFX directly: EmbeddedGFX's
 `IDisplay` carries only rect/round-rect primitives, and these need circles and
 lines. `wicon_begin(gfx)` in `setup()` binds the surface.
+
+## General preferences (Settings > General)
+
+On/off preferences that shape the UI, saved to NVS as a bit field so adding one
+costs a flag rather than a new key. The rows come from a table in
+`GeneralApp.cpp`, so a new preference is one entry there plus its getter and
+setter in `GeneralSettings.*`.
+
+Currently one: **Mini-split card**. Turning it off hides the card from the
+Control tab and the light switches take the whole tab — their toggles go from
+138 px to 324 px tall. The mini-split's slots in the shared button array are
+kept but marked neither printable nor clickable, so the light row keeps its
+indices and nothing has to be renumbered for the two layouts.
+
+Hiding the card is presentational only: `MiniSplit` keeps its state and still
+sends, so turning the card back on returns to exactly where the unit was left.
 
 ## WiFi setup (Settings > WiFi)
 
@@ -113,9 +182,9 @@ Fan     [ ABOVE ]   [ - ]  74°  [ + ]
   is only what makes it survive a reboot.
 
 Rules are **edge triggered**: a light is switched when the temperature crosses
-the setpoint, never held there. A manual tap on the Switches tab therefore
+the setpoint, never held there. A manual tap on the Control tab therefore
 always wins until the next crossing, and a light already under a rule shows it
-on its Switches label (`Fan >74°`). A 2 °F deadband on the release side keeps a
+on its Control-tab label (`Fan >74°`). A 2 °F deadband on the release side keeps a
 reading that hovers on the setpoint from chattering the relay, and the rules
 stop acting entirely if the room reading is missing or more than 5 minutes old.
 

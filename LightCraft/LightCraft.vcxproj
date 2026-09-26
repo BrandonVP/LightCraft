@@ -78,7 +78,11 @@
     </ClCompile>
     <ClCompile Include="RelayControl.cpp" />
     <ClCompile Include="HomeApp.cpp" />
-    <ClCompile Include="SwitchesApp.cpp" />
+    <ClCompile Include="ControlApp.cpp" />
+    <ClCompile Include="ClimateApp.cpp" />
+    <ClCompile Include="GeneralSettings.cpp" />
+    <ClCompile Include="GeneralApp.cpp" />
+    <ClCompile Include="MiniSplit.cpp" />
     <ClCompile Include="WeatherTime.cpp" />
     <ClCompile Include="WiFiConfig.cpp" />
     <ClCompile Include="WiFiApp.cpp" />
@@ -93,7 +97,11 @@
     <ClInclude Include="GT911Adapter.h" />
     <ClInclude Include="RelayControl.h" />
     <ClInclude Include="HomeApp.h" />
-    <ClInclude Include="SwitchesApp.h" />
+    <ClInclude Include="ControlApp.h" />
+    <ClInclude Include="ClimateApp.h" />
+    <ClInclude Include="GeneralSettings.h" />
+    <ClInclude Include="GeneralApp.h" />
+    <ClInclude Include="MiniSplit.h" />
     <ClInclude Include="WeatherTime.h" />
     <ClInclude Include="WiFiConfig.h" />
     <ClInclude Include="WiFiApp.h" />
