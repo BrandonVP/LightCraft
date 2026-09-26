@@ -24,8 +24,11 @@ static const char* const DOW[7] =
 // Button indices on the shared app-button array. WCARD_IDX is the weather
 // card's own face: a clickable button the size of the card, drawn before the
 // labels that sit on it.
+// The four outdoor stats are a 2x2 grid of left-aligned cells rather than two
+// centred strings: centring lines of different lengths put every value at a
+// different x, which read as scattered.
 enum { TIME_IDX = 0, DATE_IDX, WCARD_IDX, CITY_IDX, CHEV_IDX, TEMP_IDX, COND_IDX,
-       DIVIDER_IDX, FEELS_IDX, HILO_IDX, ROOM_IDX, HOME_BTN_COUNT };
+       HIGH_IDX, FEELS_IDX, LOW_IDX, HUMID_IDX, DIVIDER_IDX, ROOM_IDX, HOME_BTN_COUNT };
 
 static const int CR_WEATHER_CARD = 1;   // click return of the weather card
 
@@ -63,16 +66,23 @@ static void setWeatherLabels(void)
         b[CITY_IDX].setTextFormat("%s", w.city);
         b[TEMP_IDX].setTextFormat("%d\xF8" "F", w.temperature);
         b[COND_IDX].setTextFormat("%s", w.condition);
-        b[FEELS_IDX].setTextFormat("Feels %d\xF8   Humidity %u%%", w.realFeel, w.humidity);
-        b[HILO_IDX].setTextFormat("High %d\xF8    Low %d\xF8", w.tempHigh, w.tempLow);
+
+        // The font is fixed width, so padding the label to a set width lines
+        // the values up under each other within a column.
+        b[HIGH_IDX].setTextFormat("%-5s%d\xF8", "High", w.tempHigh);
+        b[LOW_IDX].setTextFormat("%-5s%d\xF8", "Low", w.tempLow);
+        b[FEELS_IDX].setTextFormat("%-9s%d\xF8", "Feels", w.realFeel);
+        b[HUMID_IDX].setTextFormat("%-9s%u%%", "Humidity", w.humidity);
     }
     else
     {
         b[CITY_IDX].setText(weather_isConnected() ? "Loading weather..." : "Connecting to WiFi...");
         b[TEMP_IDX].setText("--\xF8" "F");
         b[COND_IDX].setText("");
+        b[HIGH_IDX].setText("");
+        b[LOW_IDX].setText("");
         b[FEELS_IDX].setText("");
-        b[HILO_IDX].setText("");
+        b[HUMID_IDX].setText("");
     }
 
     // Room reading from the weather station (independent of the OWM fetch).
@@ -138,21 +148,35 @@ uint8_t home_createBtns(void)
     b[COND_IDX].setButton(164, 314, 440, 340, 0, true, 12, "", ALIGN_CENTER, fill, fill, gfxTheme.btnTextColor);
     b[COND_IDX].setTextSize(16);  b[COND_IDX].setClickable(false);
 
+    // Outdoor stats: two columns, two rows, every cell left-aligned so the
+    // labels stack and (with the padding above) so do the values. The pair is
+    // centred on the card as a block rather than each line centring itself.
+    static const int COL_A = 92,  COL_A_END = 228;
+    static const int COL_B = 236, COL_B_END = 390;
+
+    b[HIGH_IDX].setButton(COL_A, 350, COL_A_END, 376, 0, true, 12, "", ALIGN_LEFT, fill, fill, gfxTheme.btnTextColor);
+    b[HIGH_IDX].setTextSize(16);  b[HIGH_IDX].setClickable(false);
+
+    b[FEELS_IDX].setButton(COL_B, 350, COL_B_END, 376, 0, true, 12, "", ALIGN_LEFT, fill, fill, gfxTheme.btnTextColor);
+    b[FEELS_IDX].setTextSize(16); b[FEELS_IDX].setClickable(false);
+
+    b[LOW_IDX].setButton(COL_A, 378, COL_A_END, 404, 0, true, 12, "", ALIGN_LEFT, fill, fill, gfxTheme.btnTextColor);
+    b[LOW_IDX].setTextSize(16);   b[LOW_IDX].setClickable(false);
+
+    b[HUMID_IDX].setButton(COL_B, 378, COL_B_END, 404, 0, true, 12, "", ALIGN_LEFT, fill, fill, gfxTheme.btnTextColor);
+    b[HUMID_IDX].setTextSize(16); b[HUMID_IDX].setClickable(false);
+
     // Hairline between the outdoor block and the room reading: a 1 px-tall
     // square button, so it goes through the normal render like everything else.
+    // Equal space above and below, or it reads as an underline on the row above
+    // rather than as a separator between two groups.
     {
         const uint16_t rule = gfxShade(fill, -18);
-        b[DIVIDER_IDX].setButton(52, 404, 428, 405, 0, false, 0, "", ALIGN_CENTER, rule, rule, rule);
+        b[DIVIDER_IDX].setButton(52, 414, 428, 415, 0, false, 0, "", ALIGN_CENTER, rule, rule, rule);
         b[DIVIDER_IDX].setClickable(false);
     }
 
-    b[FEELS_IDX].setButton(44, 350, 436, 376, 0, true, 12, "", ALIGN_CENTER, fill, fill, gfxTheme.btnTextColor);
-    b[FEELS_IDX].setTextSize(16); b[FEELS_IDX].setClickable(false);
-
-    b[HILO_IDX].setButton(44, 378, 436, 402, 0, true, 12, "", ALIGN_CENTER, fill, fill, gfxTheme.btnTextColor);
-    b[HILO_IDX].setTextSize(16);  b[HILO_IDX].setClickable(false);
-
-    b[ROOM_IDX].setButton(44, 412, 436, 444, 0, true, 12, "Room --", ALIGN_CENTER, fill, fill, gfxTheme.btnTextColor);
+    b[ROOM_IDX].setButton(44, 424, 436, 450, 0, true, 12, "Room --", ALIGN_CENTER, fill, fill, gfxTheme.btnTextColor);
     b[ROOM_IDX].setTextSize(16);  b[ROOM_IDX].setClickable(false);
 
     // Populate with the current time + saved weather so a (re)entry to Home
