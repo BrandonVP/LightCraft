@@ -203,6 +203,12 @@ static bool evaluate(uint8_t light, int16_t roomF)
 
 void TEMPCTL_tick(void)
 {
+    // Deferred save, on the same settle the evaluation below waits for: the
+    // page has no save button, so an edit must not be lost by walking away.
+    // Checked before the rate gate so it lands promptly.
+    if (s_dirty && (millis() - s_lastEditMs) >= EDIT_SETTLE_MS)
+        TEMPCTL_save();
+
     if (millis() - s_lastEvalMs < EVAL_INTERVAL_MS)
         return;
     s_lastEvalMs = millis();

@@ -12,14 +12,13 @@ Description : Settings > Temp Rules page (see TempRuleApp.h).
 #include <App.h>
 
 // --- Button layout ---------------------------------------------------------
-// One status line, five buttons per light row, one save button.
+// One status line, then five buttons per light row.
 enum { CTL_NAME = 0, CTL_MODE, CTL_MINUS, CTL_VALUE, CTL_PLUS, CTL_PER_ROW };
 
 enum {
     STATUS_IDX = 0,
     ROW_BASE   = 1,
-    SAVE_IDX   = ROW_BASE + (int)LIGHT_COUNT * (int)CTL_PER_ROW,
-    TR_BTN_COUNT
+    TR_BTN_COUNT = ROW_BASE + (int)LIGHT_COUNT * (int)CTL_PER_ROW
 };
 
 static inline uint8_t ctlIdx(uint8_t light, uint8_t control)
@@ -31,12 +30,13 @@ static inline uint8_t ctlIdx(uint8_t light, uint8_t control)
 static const int CR_MODE_BASE  = 10;   // 10..12
 static const int CR_MINUS_BASE = 20;   // 20..22
 static const int CR_PLUS_BASE  = 30;   // 30..32
-static const int CR_SAVE       = 40;
 
 // --- Geometry --------------------------------------------------------------
-static const int ROW_Y0     = 98;    // top of the first row card
-static const int ROW_PITCH  = 106;
-static const int ROW_HEIGHT = 96;
+// Taller rows than before: dropping the save button freed the bottom of the
+// page, and the space is better spent on the touch targets.
+static const int ROW_Y0     = 104;   // top of the first row card
+static const int ROW_PITCH  = 122;
+static const int ROW_HEIGHT = 110;
 
 // --- Press-and-hold repeat -------------------------------------------------
 static const uint32_t HOLD_DELAY_MS    = 500;   // before repeat starts
@@ -106,25 +106,6 @@ static void setSetpointLabel(uint8_t light)
                                              : gfxTheme.btnTextColor);
 }
 
-static void styleSave(void)
-{
-    UserInterfaceClass& btn = GUI_I.appButtons()[SAVE_IDX];
-    if (TEMPCTL_isDirty())
-    {
-        btn.setText("SAVE");
-        btn.setBgColor(gfxTheme.orangeBtn);
-        btn.setBorderColor(gfxTheme.orangeBtn);
-        btn.setTextColor(0x0000);
-    }
-    else
-    {
-        btn.setText("SAVED");
-        btn.setBgColor(cardFill());
-        btn.setBorderColor(gfxTheme.btnBorder);
-        btn.setTextColor(gfxShade(gfxTheme.btnTextColor, -35));
-    }
-}
-
 // --- Page ------------------------------------------------------------------
 uint8_t temprule_createBtns(void)
 {
@@ -145,30 +126,30 @@ uint8_t temprule_createBtns(void)
         GUI_I.drawCard(16, y0, 448, ROW_HEIGHT, 16, fill, shadow, 5);
 
         // Light name — blends onto the card.
-        b[ctlIdx(i, CTL_NAME)].setButton(28, y0 + 28, 150, y0 + 68, 0, true, 10,
+        b[ctlIdx(i, CTL_NAME)].setButton(28, y0 + 35, 150, y0 + 75, 0, true, 10,
                                          RELAY_name(i), ALIGN_LEFT,
                                          fill, fill, gfxTheme.btnTextColor);
         b[ctlIdx(i, CTL_NAME)].setTextSize(16);
         b[ctlIdx(i, CTL_NAME)].setClickable(false);
 
         // Mode: OFF / ABOVE / BELOW (cycled by tapping).
-        b[ctlIdx(i, CTL_MODE)].setButton(156, y0 + 18, 268, y0 + 78,
+        b[ctlIdx(i, CTL_MODE)].setButton(156, y0 + 25, 268, y0 + 85,
                                          (uint16_t)(CR_MODE_BASE + i), true, 14, "OFF", ALIGN_CENTER,
                                          gfxTheme.btnColor, gfxTheme.btnBorder, gfxTheme.btnText);
         b[ctlIdx(i, CTL_MODE)].setTextSize(16);
 
-        b[ctlIdx(i, CTL_MINUS)].setButton(276, y0 + 18, 328, y0 + 78,
+        b[ctlIdx(i, CTL_MINUS)].setButton(276, y0 + 25, 328, y0 + 85,
                                           (uint16_t)(CR_MINUS_BASE + i), true, 14, "-", ALIGN_CENTER,
                                           gfxTheme.btnColor, gfxTheme.btnBorder, gfxTheme.btnText);
         b[ctlIdx(i, CTL_MINUS)].setTextSize(24);
 
         // Setpoint readout — a label on the card, not a button.
-        b[ctlIdx(i, CTL_VALUE)].setButton(332, y0 + 24, 396, y0 + 72, 0, true, 10, "--", ALIGN_CENTER,
+        b[ctlIdx(i, CTL_VALUE)].setButton(332, y0 + 31, 396, y0 + 79, 0, true, 10, "--", ALIGN_CENTER,
                                           fill, fill, gfxTheme.btnTextColor);
         b[ctlIdx(i, CTL_VALUE)].setTextSize(24);
         b[ctlIdx(i, CTL_VALUE)].setClickable(false);
 
-        b[ctlIdx(i, CTL_PLUS)].setButton(404, y0 + 18, 452, y0 + 78,
+        b[ctlIdx(i, CTL_PLUS)].setButton(404, y0 + 25, 452, y0 + 85,
                                          (uint16_t)(CR_PLUS_BASE + i), true, 14, "+", ALIGN_CENTER,
                                          gfxTheme.btnColor, gfxTheme.btnBorder, gfxTheme.btnText);
         b[ctlIdx(i, CTL_PLUS)].setTextSize(24);
@@ -177,12 +158,7 @@ uint8_t temprule_createBtns(void)
         setSetpointLabel(i);
     }
 
-    b[SAVE_IDX].setButton(140, 418, 340, 468, CR_SAVE, true, 16, "SAVE", ALIGN_CENTER,
-                          gfxTheme.btnColor, gfxTheme.btnBorder, gfxTheme.btnText);
-    b[SAVE_IDX].setTextSize(16);
-
     setStatusLabel();
-    styleSave();
 
     // A page rebuild (theme change, tab re-entry) cancels any in-flight hold.
     s_holdIdx  = -1;
@@ -191,16 +167,15 @@ uint8_t temprule_createBtns(void)
     return TR_BTN_COUNT;
 }
 
-// Redraw one row's mode + setpoint and the save button after an edit.
+// Redraw one row's mode + setpoint after an edit. The rule takes effect and
+// saves itself once the edit settles, so there is nothing else to update.
 static void refreshRow(uint8_t light)
 {
     styleMode(light);
     setSetpointLabel(light);
-    styleSave();
 
     GUI_I.updateButton(ctlIdx(light, CTL_MODE));
     GUI_I.updateButton(ctlIdx(light, CTL_VALUE));
-    GUI_I.updateButton(SAVE_IDX);
     GUI_I.updateScreen();
 }
 
@@ -214,16 +189,6 @@ void temprule_handler(int userInput)
 {
     if (userInput < 0)
         return;
-
-    if (userInput == CR_SAVE)
-    {
-        if (TEMPCTL_isDirty())
-            TEMPCTL_save();
-        styleSave();
-        GUI_I.updateButton(SAVE_IDX);
-        GUI_I.updateScreen();
-        return;
-    }
 
     if (userInput >= CR_MODE_BASE && userInput < CR_MODE_BASE + LIGHT_COUNT)
     {
@@ -258,7 +223,7 @@ void temprule_handler(int userInput)
 // button is not a -/+ step button.
 static bool stepButtonAt(int buttonIndex, uint8_t& light, int16_t& sign)
 {
-    if (buttonIndex < ROW_BASE || buttonIndex >= SAVE_IDX)
+    if (buttonIndex < ROW_BASE || buttonIndex >= TR_BTN_COUNT)
         return false;
 
     int rel     = buttonIndex - ROW_BASE;

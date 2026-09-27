@@ -14,8 +14,9 @@ Description : Room-temperature automation for the three light relays.
               always wins until the temperature next crosses the setpoint, so
               the automation and the user never fight over a relay.
 
-              An edited rule takes effect as soon as the edit settles; SAVE only
-              makes it survive a reboot.
+              An edited rule takes effect as soon as the edit settles, and saves
+              itself on the same settle — the page has no save button, matching
+              the schedules editor.
 
               Rules persist in the ESP32's NVS flash (Preferences), not on the
               SD card: the TF slot shares its SPI bus (IO47/IO48) with the
@@ -53,6 +54,8 @@ static const int16_t TEMPCTL_HYSTERESIS_F = 2;
 void TEMPCTL_begin(void);
 
 // Persist the current rules to flash. Returns true when the write succeeded.
+// TEMPCTL_tick() calls this for you once an edit settles; it is exposed for a
+// caller that wants to force the write sooner.
 bool TEMPCTL_save(void);
 
 // Evaluate the rules against the latest room reading. Call every loop();

@@ -242,7 +242,8 @@ fires last wins, the same way a manual tap behaves.
 Two details worth knowing. Nothing fires until NTP has produced a real clock,
 and the first evaluation after a reboot only records where the clock is, so
 restarting the panel in the evening does not replay the morning's events. Edits
-save themselves once they settle, so there is no save button to forget.
+save themselves once they settle, so there is no save button to forget — the
+temperature rules work the same way.
 
 ## Temperature rules (Settings > Temp Rules)
 
@@ -257,8 +258,11 @@ Fan     [ ABOVE ]   [ - ]  74°  [ + ]
   room reaches the setpoint (a ceiling fan); `BELOW` is the inverse (a heater).
 - **- / +** move the setpoint between 40 °F and 95 °F. Hold to repeat; keep
   holding to move 5 °F at a time.
-- **SAVE** writes the rules to flash. An edit takes effect immediately — saving
-  is only what makes it survive a reboot.
+
+An edit takes effect and saves itself once it settles, so there is no save
+button — the same as the schedules editor. The settle also stops the relay
+clicking on every crossing while a held `-`/`+` sweeps the setpoint past the
+current room temperature.
 
 Rules are **edge triggered**: a light is switched when the temperature crosses
 the setpoint, never held there. A manual tap on the Control tab therefore
