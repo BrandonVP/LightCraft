@@ -131,6 +131,10 @@ static void fetchWeather()
             strncpy(w.iconCode, icon, sizeof(w.iconCode) - 1);
             w.iconCode[sizeof(w.iconCode) - 1] = '\0';
 
+            // Sun times for the schedules, already in this response.
+            w.sunrise = doc["sys"]["sunrise"] | 0UL;
+            w.sunset  = doc["sys"]["sunset"]  | 0UL;
+
             w.valid = true;
 
             portENTER_CRITICAL(&s_mux);

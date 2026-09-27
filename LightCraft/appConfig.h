@@ -39,6 +39,8 @@ enum AppLabels {
     APP_DISPLAY,         // Settings > Display (backlight)
     APP_THEME,           // Settings > Themes
     APP_TEMP_RULES,      // Settings > Temp Rules
+    APP_SCHEDULES,       // Settings > Schedules (the list)
+    APP_SCHED_EDIT,      // Schedules > one light (tap a row)
     APP_WIFI,            // Settings > WiFi
     APP_KEYBOARD,        // text entry, opened by whatever needs a string
     APP_COUNT

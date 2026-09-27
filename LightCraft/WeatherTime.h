@@ -24,6 +24,12 @@ struct WeatherData
     uint8_t humidity;     // %
     char    condition[16];// OWM "main", e.g. "Clouds"
     char    iconCode[4];  // OWM icon code, e.g. "10d" (see WeatherIcons.h)
+
+    // Today's sunrise/sunset as UTC epoch seconds, 0 when not known yet. They
+    // ride along in the same response as everything above, so schedules get
+    // them without a second API call.
+    uint32_t sunrise;
+    uint32_t sunset;
     bool    valid;        // true once an OpenWeatherMap fetch has succeeded
 
     // Room reading from the ESP8266 weather station (LAN).

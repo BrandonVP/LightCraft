@@ -50,6 +50,8 @@
 #include "GeneralApp.h"
 #include "Backlight.h"
 #include "DisplayApp.h"
+#include "Schedule.h"
+#include "ScheduleApp.h"
 
 // Give the Arduino loop task extra stack headroom (draw call chains + WiFi).
 SET_LOOP_TASK_STACK_SIZE(16 * 1024);
@@ -224,6 +226,8 @@ void registerApps()
     app.add(MENU_settings, "Display",  APP_DISPLAY,       display_handler,   display_createBtns);
     app.add(MENU_settings, "Themes",   APP_THEME,         ThemeApp_handler,  themes_createBtns);
     app.add(MENU_settings, "Temp Rules", APP_TEMP_RULES,  temprule_handler,  temprule_createBtns);
+    app.add(MENU_settings, "Schedules", APP_SCHEDULES,    schedule_handler,  schedule_createBtns);
+    app.add(MENU_hidden,   "Schedule",  APP_SCHED_EDIT,   schedEdit_handler, schedEdit_createBtns);
     app.add(MENU_settings, "WiFi",     APP_WIFI,          wifiApp_handler,   wifiApp_createBtns);
 
     // On MENU_hidden so it never shows up in the Settings list â€” it is opened
@@ -240,6 +244,7 @@ void setup()
     TEMPCTL_begin();            // load the saved room-temperature rules (NVS)
     MINISPLIT_begin();          // load the last commanded mini-split state (NVS)
     GSET_begin();               // user preferences (NVS) — read while apps build
+    SCHED_begin();              // load the saved light schedules (NVS)
 
     // Touch
     Wire.begin(GT911_SDA, GT911_SCL);
@@ -306,6 +311,7 @@ void loop()
     }
 
     TEMPCTL_tick();             // room-temperature rules drive the relays
+    SCHED_tick();               // time-of-day / sunrise / sunset schedules
     MINISPLIT_tick();           // send a coalesced mini-split frame once edits settle
     control_tick();             // 30s return-to-Home after a light turns on
     climate_tick();             // live status on the full mini-split page

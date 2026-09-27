@@ -13,7 +13,8 @@ library.
   weather card** for the 5-day forecast.
 - **Control** — the room mini-split on top, the three light toggles along the
   bottom.
-- **Settings** — general preferences, theme picker, temperature rules, WiFi.
+- **Settings** — general preferences, display, theme picker, temperature rules,
+  schedules, WiFi.
 
 **Behaviour:** turning a light on from the Control tab returns to the Home tab
 30 seconds later. Any further tap on that tab pushes the timer out, so adjusting
@@ -210,6 +211,38 @@ app->newApp(APP_KEYBOARD);
 
 It needs 48 app-button slots, which is why `GFX_APP_BUTTON_SIZE` is 56. There is
 a `static_assert` in `WiFiApp.cpp` guarding that.
+
+## Schedules (Settings > Schedules)
+
+Each light gets an ON event and an OFF event. The list shows all three with
+their current schedule; tapping a row opens an editor for that light.
+
+```
+Schedules
+
+  Hall                                    >
+  On sunset-15   Off 23:00
+
+  Room                                    >
+  no schedule
+```
+
+An event fires at a **clock time**, or at **sunrise** or **sunset** with an
+offset of up to ±2 hours. The sun times cost nothing extra: `sys.sunrise` and
+`sys.sunset` ride along in the same OpenWeatherMap response the Home tab already
+fetches every five minutes, so a sunset trigger needs no second API call and
+follows the seasons on its own. With a sun trigger selected the editor shows
+what it works out to today, which is the point of choosing it over a fixed time.
+
+Like the temperature rules these are **edge triggered**: a light is switched as
+the moment passes, never held, so a manual tap afterwards stands until the next
+event. Schedules and temperature rules can both drive the same light — whichever
+fires last wins, the same way a manual tap behaves.
+
+Two details worth knowing. Nothing fires until NTP has produced a real clock,
+and the first evaluation after a reboot only records where the clock is, so
+restarting the panel in the evening does not replay the morning's events. Edits
+save themselves once they settle, so there is no save button to forget.
 
 ## Temperature rules (Settings > Temp Rules)
 
