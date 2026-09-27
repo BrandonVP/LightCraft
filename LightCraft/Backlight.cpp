@@ -13,12 +13,28 @@ static const char* NVS_NAMESPACE = "lightcraft";
 static const char* NVS_KEY_BL    = "backlight";
 static const uint8_t BLOB_VERSION = 1;
 
-// 5 kHz is well clear of anything the eye can see and of the panel's ~49 Hz
-// refresh, and high enough not to whine. 10 bits is far finer than the eye can
-// resolve on a backlight.
-static const uint32_t PWM_FREQ_HZ = 5000;
+// 600 Hz, matching the seller's 86switch_onoff demo, which drives this same pin
+// with ledcSetup(0, 600, 8) and sits at duty 150/255 by default.
+//
+// The frequency is not a free choice here: GPIO 38 gates the ENABLE pin of a
+// boost LED driver (U5 on the schematic), not a MOSFET, and a boost converter
+// needs time to reach regulation on each cycle. At 5 kHz the off-time starves
+// it and the panel only lights above roughly 70% duty, which reads as a hard
+// cliff to black rather than dimming. Raising this is what breaks the low end.
+//
+// 10 bits rather than the demo's 8 for smoother fades; 600 * 1024 is still far
+// below the LEDC clock.
+static const uint32_t PWM_FREQ_HZ = 600;
 static const uint8_t  PWM_BITS    = 10;
 static const uint16_t DUTY_MAX    = (1 << PWM_BITS) - 1;
+
+// Lowest duty that still lights the panel. The same driver has a minimum
+// on-time, so a percentage is mapped into [DUTY_MIN, DUTY_MAX] rather than from
+// zero — without it the dim end lands at an on-time the driver ignores and the
+// screen goes black instead of dim. Raise this if the bottom of the range still
+// cuts out; lower it if the dimmest setting is brighter than you want.
+// 0% is exempt: that drops ENABLE and turns the driver off outright.
+static const uint16_t DUTY_MIN = (uint16_t)(DUTY_MAX * 4 / 100);
 
 // Fade is stepped here rather than handed to ledcFade(): the hardware fade
 // leans on an ISR, and a non-IRAM-safe ISR is exactly what crashed this board
@@ -58,9 +74,10 @@ static uint32_t s_changedMs  = 0;
 static uint16_t dutyFor(uint8_t pct)
 {
     if (pct == 0)
-        return 0;
-    uint32_t d = ((uint32_t)DUTY_MAX * pct * pct) / (100UL * 100UL);
-    return (uint16_t)(d == 0 ? 1 : d);
+        return 0;                       // ENABLE low: driver off, panel black
+
+    const uint32_t span = DUTY_MAX - DUTY_MIN;
+    return (uint16_t)(DUTY_MIN + (span * pct * pct) / (100UL * 100UL));
 }
 
 static void clampSettings(void)

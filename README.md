@@ -122,10 +122,22 @@ Display
 A short timeout does most of what a night schedule would — the screen is only
 bright when somebody is standing at it — so there is no clock-based rule here.
 
-Two implementation notes. Percentages are **perceived** brightness, squared on
-the way to duty, because brightness tracks roughly the square of duty: 15%
-lands at 2% duty, which is genuinely dim rather than "still lighting the room".
-And the fade is stepped in `BACKLIGHT_tick()` rather than handed to the core's
+**The PWM frequency is not a free choice: it must be 600 Hz.** GPIO 38 gates the
+ENABLE pin of a boost LED driver (U5), not a MOSFET, and a boost converter needs
+time to reach regulation each cycle. At 5 kHz the off-time starves it and the
+panel only lights above roughly 70% duty — which reads as a hard cliff to black
+instead of dimming. 600 Hz is what the seller's `86switch_onoff` demo uses on
+this pin, and it ships running at 59% duty.
+
+The same driver has a minimum on-time, so a percentage maps into
+`[DUTY_MIN, DUTY_MAX]` rather than from zero; 0% is exempt and drops ENABLE to
+turn the driver off outright. `DUTY_MIN` is the knob if the dim end still cuts
+out (raise it) or is brighter than you want (lower it).
+
+Percentages are **perceived** brightness, squared on the way to duty, since
+brightness tracks roughly the square of duty.
+
+The fade is stepped in `BACKLIGHT_tick()` rather than handed to the core's
 `ledcFade()`, which leans on an ISR — a non-IRAM-safe ISR is what crashed this
 board over the RGB bounce buffer, and there is no reason to invite it back for
 something this cheap.
