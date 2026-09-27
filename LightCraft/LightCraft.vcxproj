@@ -94,6 +94,8 @@
     <ClCompile Include="TempRuleApp.cpp" />
     <ClCompile Include="WeatherIcons.cpp" />
     <ClCompile Include="ForecastApp.cpp" />
+    <ClCompile Include="TempHistory.cpp" />
+    <ClCompile Include="HistoryApp.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="appConfig.h" />
@@ -117,6 +119,8 @@
     <ClInclude Include="TempRuleApp.h" />
     <ClInclude Include="WeatherIcons.h" />
     <ClInclude Include="ForecastApp.h" />
+    <ClInclude Include="TempHistory.h" />
+    <ClInclude Include="HistoryApp.h" />
     <ClInclude Include="secrets.h" />
     <ClInclude Include="__vm\.LightCraft.vsarduino.h" />
   </ItemGroup>

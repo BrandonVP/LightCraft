@@ -85,6 +85,29 @@ extremes across each day's slots, and the icon is taken from the slot nearest
 refreshes every 30 minutes, plus on demand when the page opens, and is skipped
 until NTP has synced (the day a slot belongs to comes from the local clock).
 
+### Room history
+
+**Tap the room line** at the bottom of the weather card for a 24-hour graph of
+the room temperature. The card's own chevron opens the forecast; the room line
+has its own, and wins the tap because it sits above the card face in the button
+order.
+
+The reading arrives every 45 s and only the latest was ever kept.
+`TempHistory.*` now bins them into **288 five-minute slots** — 576 bytes for a
+full day — averaging each bin. That averaging matters: the DHT11 quantises to
+1 °C (1.8 °F), so a raw trace is a staircase, while the mean of six or seven
+readings recovers real sub-degree detail. Slots therefore hold **tenths** of a
+degree.
+
+A slot that collected nothing is stored empty rather than skipped, so one slot
+is always five minutes of wall clock and a period with the node offline draws as
+a gap in the line instead of a straight segment pretending there was data.
+
+The y axis auto-scales to the day's range but never below 6 °F, or a steady room
+would turn sensor noise into a mountain range. It is RAM only — persisting would
+mean an NVS write every five minutes, which is not worth the flash wear — so a
+reboot starts a fresh day.
+
 ### Icons
 
 `WeatherIcons.cpp` **draws** the condition icons — sun, moon, sun/moon behind

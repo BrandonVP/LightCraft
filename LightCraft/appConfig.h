@@ -32,6 +32,7 @@ enum Menus {
 enum AppLabels {
     APP_HOME = 0,        // Home tab (opens directly)
     APP_FORECAST,        // Home > 5-day forecast (tap the weather card)
+    APP_HISTORY,         // Home > room temperature history (tap the room line)
     APP_CONTROL,         // Control tab (opens directly): mini-split + lights
     APP_CLIMATE,         // Control > full mini-split page (tap the card)
     APP_SETTINGS_MENU,   // Settings tab landing (lists settings apps)

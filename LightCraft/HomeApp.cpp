@@ -28,9 +28,11 @@ static const char* const DOW[7] =
 // centred strings: centring lines of different lengths put every value at a
 // different x, which read as scattered.
 enum { TIME_IDX = 0, DATE_IDX, WCARD_IDX, CITY_IDX, CHEV_IDX, TEMP_IDX, COND_IDX,
-       HIGH_IDX, FEELS_IDX, LOW_IDX, HUMID_IDX, DIVIDER_IDX, ROOM_IDX, HOME_BTN_COUNT };
+       HIGH_IDX, FEELS_IDX, LOW_IDX, HUMID_IDX, DIVIDER_IDX, ROOM_IDX, ROOMCHEV_IDX,
+       HOME_BTN_COUNT };
 
 static const int CR_WEATHER_CARD = 1;   // click return of the weather card
+static const int CR_ROOM_HISTORY = 2;   // the room line, below the divider
 
 // Weather card geometry (also used by the directly-drawn icon + chevron).
 static const int WCARD_X = 24,  WCARD_Y = 206;
@@ -176,8 +178,16 @@ uint8_t home_createBtns(void)
         b[DIVIDER_IDX].setClickable(false);
     }
 
-    b[ROOM_IDX].setButton(44, 424, 436, 450, 0, true, 12, "Room --", ALIGN_CENTER, fill, fill, gfxTheme.btnTextColor);
-    b[ROOM_IDX].setTextSize(16);  b[ROOM_IDX].setClickable(false);
+    // The room line opens its own history, so it is clickable rather than a
+    // label. Its index is above the card face, so a tap down here goes to the
+    // history while the rest of the card still opens the forecast.
+    b[ROOM_IDX].setButton(44, 420, 396, 452, CR_ROOM_HISTORY, true, 12, "Room --", ALIGN_CENTER,
+                          fill, fill, gfxTheme.btnBorder, gfxTheme.btnTextColor);
+    b[ROOM_IDX].setTextSize(16);
+
+    b[ROOMCHEV_IDX].setButton(400, 420, 436, 452, 0, true, 10, ">", ALIGN_CENTER,
+                              fill, fill, gfxShade(gfxTheme.btnTextColor, -25));
+    b[ROOMCHEV_IDX].setTextSize(16);  b[ROOMCHEV_IDX].setClickable(false);
 
     // Populate with the current time + saved weather so a (re)entry to Home
     // shows real data immediately, without waiting for home_tick.
@@ -193,12 +203,21 @@ uint8_t home_createBtns(void)
 
 void home_handler(int userInput)
 {
+    App* app = GUI_I.getApp();
+    if (!app)
+        return;
+
+    if (userInput == CR_ROOM_HISTORY)
+    {
+        app->newApp(APP_HISTORY);
+        return;
+    }
+
     if (userInput != CR_WEATHER_CARD)
         return;
 
     forecast_request();             // refresh in the background while it opens
-    App* app = GUI_I.getApp();
-    if (app) app->newApp(APP_FORECAST);
+    app->newApp(APP_FORECAST);
 }
 
 void home_seedClockFromBuild(void)

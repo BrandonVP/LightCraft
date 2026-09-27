@@ -42,6 +42,8 @@
 #include "WeatherTime.h"
 #include "WeatherIcons.h"
 #include "ForecastApp.h"
+#include "TempHistory.h"
+#include "HistoryApp.h"
 #include "TempControl.h"
 #include "TempRuleApp.h"
 #include "WiFiConfig.h"
@@ -219,6 +221,7 @@ void registerApps()
 {
     app.add(MENU_home,     "Home",     APP_HOME,          home_handler,     home_createBtns);
     app.add(MENU_home,     "Forecast", APP_FORECAST,      forecastApp_handler, forecastApp_createBtns);
+    app.add(MENU_home,     "History",  APP_HISTORY,       historyApp_handler,  historyApp_createBtns);
     app.add(MENU_control,  "Control",  APP_CONTROL,       control_handler,  control_createBtns);
     app.add(MENU_control,  "Climate",  APP_CLIMATE,       climate_handler,  climate_createBtns);
     app.add(MENU_settings, "Settings", APP_SETTINGS_MENU, GFX_menuInput,     settingsMenu_createBtns);
@@ -264,6 +267,8 @@ void setup()
     // Weather icons are drawn with circle/line primitives the IDisplay
     // interface does not carry, so they talk to Arduino_GFX directly.
     wicon_begin(gfx);
+    historyApp_begin(gfx);      // the history plot needs lines too
+    TEMPHIST_begin();           // start binning the room readings
 
     ThemeApp_setMenuRedraw(drawMenuBar);
     ThemeApp_begin();
@@ -317,6 +322,8 @@ void loop()
     climate_tick();             // live status on the full mini-split page
     home_tick();                // live clock + weather while the Home tab is showing
     forecastApp_tick();         // rebuild the forecast page when new data lands
+    TEMPHIST_tick();            // bin the room readings into 5-minute slots
+    historyApp_tick();          // redraw the graph when a slot closes
     temprule_tick();            // live room temp + hold-to-repeat on Temp Rules
     wifiApp_tick();             // scan results + live link status on Settings > WiFi
 }
