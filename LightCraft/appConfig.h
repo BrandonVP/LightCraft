@@ -43,6 +43,7 @@ enum AppLabels {
     APP_SCHEDULES,       // Settings > Schedules (the list)
     APP_SCHED_EDIT,      // Schedules > one light (tap a row)
     APP_WIFI,            // Settings > WiFi
+    APP_NETGRAPH,        // Settings > WiFi > connection graph
     APP_KEYBOARD,        // text entry, opened by whatever needs a string
     APP_COUNT
 };

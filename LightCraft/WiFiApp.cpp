@@ -27,6 +27,7 @@ enum {
     IDX_SCAN = IDX_ROW0 + ROWS_PER_PAGE,
     IDX_MORE,
     IDX_FORGET,
+    IDX_GRAPH,
     WIFI_BTN_COUNT
 };
 
@@ -35,6 +36,7 @@ static const int CR_ROW_BASE = 1;    // 1..5
 static const int CR_SCAN     = 10;
 static const int CR_MORE     = 11;
 static const int CR_FORGET   = 12;
+static const int CR_GRAPH    = 13;
 
 // --- Geometry --------------------------------------------------------------
 static const int ROW_Y0    = 150;
@@ -125,7 +127,7 @@ static void setRowLabels(void)
     // With one page there is nothing to cycle to, so the button says so rather
     // than looking like it failed to respond.
     const bool multiPage = pageCount() > 1;
-    b[IDX_MORE].setTextFormat("PAGE %u/%u", (unsigned)(s_page + 1), (unsigned)pageCount());
+    b[IDX_MORE].setTextFormat("PG %u/%u", (unsigned)(s_page + 1), (unsigned)pageCount());
     b[IDX_MORE].setClickable(multiPage);
     b[IDX_MORE].setBgColor(multiPage ? gfxTheme.btnColor : gfxTheme.background);
     b[IDX_MORE].setBorderColor(multiPage ? gfxTheme.btnBorder : gfxShade(gfxTheme.background, 20));
@@ -211,17 +213,23 @@ uint8_t wifiApp_createBtns(void)
         b[IDX_ROW0 + r].setTextSize(16);
     }
 
-    b[IDX_SCAN].setButton(24, 424, 170, 470, CR_SCAN, true, 14, "SCAN", ALIGN_CENTER,
+    // Four across the bottom now, so the page indicator loses the word "PAGE"
+    // to fit: "PG 1/2" is 72px in a 100px button, "PAGE 1/2" would be 96.
+    b[IDX_SCAN].setButton(24, 424, 124, 470, CR_SCAN, true, 14, "SCAN", ALIGN_CENTER,
                           gfxTheme.btnColor, gfxTheme.btnBorder, gfxTheme.btnText);
     b[IDX_SCAN].setTextSize(16);
 
-    b[IDX_MORE].setButton(180, 424, 300, 470, CR_MORE, true, 14, "PAGE 1/1", ALIGN_CENTER,
+    b[IDX_MORE].setButton(134, 424, 234, 470, CR_MORE, true, 14, "PG 1/1", ALIGN_CENTER,
                           gfxTheme.btnColor, gfxTheme.btnBorder, gfxTheme.btnText);
     b[IDX_MORE].setTextSize(16);
 
-    b[IDX_FORGET].setButton(310, 424, 456, 470, CR_FORGET, true, 14, "FORGET", ALIGN_CENTER,
+    b[IDX_FORGET].setButton(244, 424, 344, 470, CR_FORGET, true, 14, "FORGET", ALIGN_CENTER,
                             gfxTheme.btnColor, gfxTheme.btnBorder, gfxTheme.btnText);
     b[IDX_FORGET].setTextSize(16);
+
+    b[IDX_GRAPH].setButton(354, 424, 454, 470, CR_GRAPH, true, 14, "GRAPH", ALIGN_CENTER,
+                           gfxTheme.btnColor, gfxTheme.btnBorder, gfxTheme.btnText);
+    b[IDX_GRAPH].setTextSize(16);
 
     // Opening the page with nothing to show is a dead end — scan straight away.
     if (s_netCount == 0 && !s_scanning)
@@ -261,6 +269,13 @@ void wifiApp_handler(int userInput)
     {
         s_page = (uint8_t)((s_page + 1) % pageCount());
         refreshList();
+        return;
+    }
+
+    if (userInput == CR_GRAPH)
+    {
+        App* app = GUI_I.getApp();
+        if (app) app->newApp(APP_NETGRAPH);
         return;
     }
 

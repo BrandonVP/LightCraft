@@ -216,6 +216,35 @@ Scanning is asynchronous (`WiFi.scanNetworks(true)`) and collected in the tick �
 a synchronous scan would block the UI loop for seconds. Note that scanning makes
 the radio hop channels, so a weather fetch in flight may fail; it simply retries.
 
+### Connection graph
+
+**GRAPH** on the WiFi page opens 24 hours of internet reachability. Every minute
+the panel opens a TCP connection to `1.1.1.1:80` and times it; five of those
+land in each five-minute slot, 288 slots for the day — the same shape as the
+room-temperature history.
+
+Latency is drawn as a line, and **any slot that saw a failed probe gets a
+full-height red bar behind it**, so an outage is visible at a glance rather than
+inferred from a gap in the line. A slot keeps both, so a single dropped probe
+shows as a thin marker with the trace running through it, while a real outage is
+a solid band with the trace broken across it. Congestion — slow but up — reads
+as a raised plateau with no red at all.
+
+A failure is classified: not associated to WiFi is a different problem from
+associated but nothing reachable beyond it, and the status line says which
+(`no wifi` vs `no route`).
+
+Two choices worth knowing. The probe uses an **IP, not a hostname** — a DNS
+lookup would be a second thing that can fail and would add its own latency to
+every reading — and **port 80 rather than 53**, because outbound 53 is blocked
+on some networks and would read as a permanent outage. It runs on the core-0
+network task alongside the weather fetches, since it blocks for up to two
+seconds and that task exists precisely so blocking work never stalls the UI.
+
+The y axis starts at zero (unlike temperature, the floor is meaningful) and
+never tops out below 100 ms, so a good day is a flat line near the bottom rather
+than noise magnified to fill the panel.
+
 ### The on-screen keyboard
 
 `KeyboardApp` lives in **EmbeddedGFX**, not here, so any project on the library

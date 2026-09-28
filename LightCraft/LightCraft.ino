@@ -44,6 +44,8 @@
 #include "ForecastApp.h"
 #include "TempHistory.h"
 #include "HistoryApp.h"
+#include "NetHistory.h"
+#include "NetGraphApp.h"
 #include "TempControl.h"
 #include "TempRuleApp.h"
 #include "WiFiConfig.h"
@@ -231,6 +233,7 @@ void registerApps()
     app.add(MENU_settings, "Temp Rules", APP_TEMP_RULES,  temprule_handler,  temprule_createBtns);
     app.add(MENU_settings, "Schedules", APP_SCHEDULES,    schedule_handler,  schedule_createBtns);
     app.add(MENU_hidden,   "Schedule",  APP_SCHED_EDIT,   schedEdit_handler, schedEdit_createBtns);
+    app.add(MENU_hidden,   "Connection", APP_NETGRAPH,    netGraph_handler,  netGraph_createBtns);
     app.add(MENU_settings, "WiFi",     APP_WIFI,          wifiApp_handler,   wifiApp_createBtns);
 
     // On MENU_hidden so it never shows up in the Settings list â€” it is opened
@@ -268,7 +271,9 @@ void setup()
     // interface does not carry, so they talk to Arduino_GFX directly.
     wicon_begin(gfx);
     historyApp_begin(gfx);      // the history plot needs lines too
+    netGraph_begin(gfx);
     TEMPHIST_begin();           // start binning the room readings
+    NETHIST_begin();            // reachability probes run on the network task
 
     ThemeApp_setMenuRedraw(drawMenuBar);
     ThemeApp_begin();
@@ -324,6 +329,7 @@ void loop()
     forecastApp_tick();         // rebuild the forecast page when new data lands
     TEMPHIST_tick();            // bin the room readings into 5-minute slots
     historyApp_tick();          // redraw the graph when a slot closes
+    netGraph_tick();            // live status + redraw on the connection graph
     temprule_tick();            // live room temp + hold-to-repeat on Temp Rules
     wifiApp_tick();             // scan results + live link status on Settings > WiFi
 }

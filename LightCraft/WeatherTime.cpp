@@ -10,6 +10,7 @@ Description : WiFi + NTP + OpenWeatherMap (see WeatherTime.h). All network work
 */
 #include "WeatherTime.h"
 #include "WiFiConfig.h"
+#include "NetHistory.h"
 #include "secrets.h"
 
 #include <WiFi.h>
@@ -380,6 +381,11 @@ static void weatherTask(void*)
                 }
             }
         }
+
+        // Reachability probe. It belongs here rather than in loop() for the
+        // same reason the fetches do: it blocks for up to a couple of seconds,
+        // and this task exists so blocking network work never stalls the UI.
+        NETHIST_taskTick();
 
         vTaskDelay(pdMS_TO_TICKS(500));
     }
