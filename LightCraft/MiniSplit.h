@@ -26,10 +26,15 @@ Description : Shadow state for the room's Della Vario (TL) mini-split.
 
 #include <Arduino.h>
 
+// DRY and FAN are APPENDED, never inserted. Saved NVS blobs store the raw
+// numeric mode, so reordering these would silently remap a saved state -- a
+// unit restored as DRY when it was left in COOL.
 enum MsMode {
     MS_MODE_HEAT = 0,
     MS_MODE_COOL,
     MS_MODE_AUTO,
+    MS_MODE_DRY,
+    MS_MODE_FAN,
     MS_MODE_COUNT
 };
 
@@ -59,8 +64,11 @@ struct MiniSplitState {
     uint8_t swingH;      // MsSwing — horizontal blades
 };
 
-// Setpoint limits, in F. Della's range for this series.
-static const int16_t MS_MIN_F = 60;
+// Setpoint limits, in F. The floor is 61 rather than 60 because TCL112AC
+// carries the setpoint in Celsius, 16.0-31.0 in 0.5 steps -- and 16.0C is
+// 60.8F, so 60F is not actually reachable. Asking for it would just leave the
+// panel showing one degree lower than the unit.
+static const int16_t MS_MIN_F = 61;
 static const int16_t MS_MAX_F = 86;
 
 // Load the last commanded state from flash. Call once in setup().
@@ -96,6 +104,12 @@ bool MINISPLIT_isLinked(void);
 
 // True while a change is waiting to be sent.
 bool MINISPLIT_isPending(void);
+
+// Bumped on every state change, whatever the source — a tap on the panel, or
+// a resync pushed up by the node after someone used the handheld remote.
+// Pages cache it and repaint when it moves, which is the only way a change
+// made OUTSIDE the UI ever reaches the screen.
+uint32_t MINISPLIT_revision(void);
 
 const char* MINISPLIT_modeName(uint8_t mode);
 const char* MINISPLIT_fanName(uint8_t fan);

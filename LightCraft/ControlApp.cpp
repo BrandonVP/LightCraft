@@ -44,7 +44,7 @@ static const int SW_BASE      = 1;    // lights: 1..3
 static const int CR_MS_CARD   = 9;
 static const int CR_TEMP_DOWN = 11;
 static const int CR_TEMP_UP   = 12;
-static const int CR_MODE_BASE = 20;   // 20..23 (off, heat, cool, auto)
+static const int CR_MODE_BASE = 20;   // 20..25 (off, heat, cool, auto, dry, fan)
 
 static const uint32_t AUTO_RETURN_MS = 30000;   // back to Home after a light on
 static const uint16_t COL_ON         = 0x07E0;  // green when a light (or the unit) is on
@@ -58,6 +58,12 @@ static uint32_t s_autoReturnAt = 0;             // 0 == disarmed
 // Relay state currently painted, so the page can notice a change made by the
 // temperature rules rather than by a tap.
 static bool s_shownOn[LIGHT_COUNT];
+
+// Same idea for the mini-split: the revision we last painted. A resync pushed
+// up by the node (someone used the handheld remote) changes the shadow without
+// going through control_handler, so without this the screen would keep showing
+// the old setpoint until the next tap.
+static uint32_t s_shownMsRev = 0;
 
 static uint16_t cardFill(void) { return gfxCardFill(gfxTheme.background); }
 
@@ -111,16 +117,29 @@ static void styleToggle(uint8_t i)
     s_shownOn[i] = on;
 }
 
-// Name label: plain light name, plus the temperature rule when one is enabled
+// Name label: switch name, plus the temperature rule when one is enabled
 // (e.g. "Fan >74°"), so the tab shows what is automated.
+//
+// The label is 125px and the font is 12px per character, so ten glyphs fill
+// it. Names are user-editable up to RELAY_NAME_MAX-1 = 10, which exactly fits
+// on its own — but the rule suffix (" >74°") costs five of those. Rather than
+// let a long name spill into the neighbouring switch, the name is truncated to
+// what is left. Truncating rather than clipping is the convention used
+// elsewhere in the project, so an over-long name reads as visibly cut.
+static const int NAME_LABEL_CHARS = 125 / 12;          // 10
+static const int NAME_RULE_CHARS  = NAME_LABEL_CHARS - 5;
+
 static void setNameLabel(uint8_t i)
 {
     UserInterfaceClass& n = GUI_I.appButtons()[nameIdx(i)];
     TempRule r = TEMPCTL_get(i);
 
-    if (r.mode == TEMP_MODE_ABOVE)      n.setTextFormat("%s >%d\xF8", RELAY_name(i), r.setpointF);
-    else if (r.mode == TEMP_MODE_BELOW) n.setTextFormat("%s <%d\xF8", RELAY_name(i), r.setpointF);
-    else                                n.setText(RELAY_name(i));
+    if (r.mode == TEMP_MODE_ABOVE)
+        n.setTextFormat("%.*s >%d\xF8", NAME_RULE_CHARS, RELAY_name(i), r.setpointF);
+    else if (r.mode == TEMP_MODE_BELOW)
+        n.setTextFormat("%.*s <%d\xF8", NAME_RULE_CHARS, RELAY_name(i), r.setpointF);
+    else
+        n.setTextFormat("%.*s", NAME_LABEL_CHARS, RELAY_name(i));
 }
 
 // --- Page ------------------------------------------------------------------
@@ -183,11 +202,13 @@ uint8_t control_createBtns(void)
                          gfxTheme.btnColor, gfxTheme.btnBorder, gfxTheme.btnText);
     b[MS_PLUS].setTextSize(32);
 
-    // Mode along the bottom of the card: OFF | HEAT | COOL | AUTO.
+    // Mode along the bottom of the card: OFF | HEAT | COOL | AUTO | DRY | FAN.
+    // Six at pitch 65 / width 59 comes to 384px, centred in the card's 432px
+    // interior. Still 59x50 per target, which is comfortably finger-sized.
     for (uint8_t m = 0; m < MS_UI_MODE_COUNT; m++)
     {
-        int x1 = 44 + m * 100;
-        b[MS_MODE_0 + m].setButton(x1, 204, x1 + 92, 254, (uint16_t)(CR_MODE_BASE + m), true, 14,
+        int x1 = 48 + m * 65;
+        b[MS_MODE_0 + m].setButton(x1, 204, x1 + 59, 254, (uint16_t)(CR_MODE_BASE + m), true, 14,
                                    "", ALIGN_CENTER, gfxTheme.btnColor, gfxTheme.btnBorder, gfxTheme.btnText);
         b[MS_MODE_0 + m].setTextSize(16);
     }
@@ -227,11 +248,16 @@ uint8_t control_createBtns(void)
         setStatusLabel();
     }
 
+    // Painted state is current as of now, so the first tick must not see a
+    // spurious change.
+    s_shownMsRev = MINISPLIT_revision();
+
     return CTRL_BTN_COUNT;
 }
 
 static void refreshClimate(void)
 {
+    s_shownMsRev = MINISPLIT_revision();
     styleClimate();
     setStatusLabel();
     GUI_I.updateButton(MS_SETPOINT);
@@ -305,6 +331,14 @@ void control_tick(void)
             styleToggle(i);
             GUI_I.updateButton(toggleIdx(i));
             changed = true;
+        }
+
+        // The mini-split changed without a tap — a resync from the handheld
+        // remote. refreshClimate() repaints and updates the screen itself.
+        if (GSET_minisplitCard() && MINISPLIT_revision() != s_shownMsRev)
+        {
+            refreshClimate();
+            changed = false;          // refreshClimate already pushed the screen
         }
 
         // Status line: "sending..." clears itself once the frame goes out.

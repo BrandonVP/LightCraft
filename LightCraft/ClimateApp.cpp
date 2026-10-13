@@ -7,10 +7,15 @@ Description : Full-screen mini-split page (see ClimateApp.h).
               Layout, top to bottom:
                 header       y  56..104   back, title, status, power
                 setpoint     y 112..228   large readout between - and +
-                mode         y 240..288
+                mode         y 240..288   OFF HEAT COOL AUTO DRY FAN
                 fan          y 298..346
                 vertical     y 356..404
                 horizontal   y 414..462
+
+              The mode row is the one row with no label. Six options do not
+              fit alongside one: the words would have to shrink to 6px glyphs,
+              which is unreadable on a wall panel from across the room. The
+              options name themselves, so the label is what gave way.
 ===========================================================================
 */
 #include "ClimateApp.h"
@@ -22,7 +27,7 @@ Description : Full-screen mini-split page (see ClimateApp.h).
 enum {
     IDX_BACK = 0, IDX_TITLE, IDX_STATUS,
     IDX_MINUS, IDX_SETPOINT, IDX_PLUS,
-    IDX_MODE_LABEL,  IDX_MODE_0,
+    IDX_MODE_0,
     IDX_FAN_LABEL  = IDX_MODE_0 + (int)MS_UI_MODE_COUNT,
     IDX_FAN_0,
     IDX_VERT_LABEL = IDX_FAN_0 + (int)MS_FAN_COUNT,
@@ -44,6 +49,11 @@ static const int CR_HORIZ_BASE  = 50;
 static const uint16_t COL_ON = 0x07E0;   // green, same as the light toggles
 
 static uint16_t cardFill(void) { return gfxCardFill(gfxTheme.background); }
+
+// The shadow revision this page last painted. A resync from the node (someone
+// used the handheld remote) changes the state without going through
+// climate_handler, so without this the page would show a stale setpoint.
+static uint32_t s_shownRev = 0;
 
 // --- Styling ---------------------------------------------------------------
 static void styleSegment(uint8_t index, bool selected)
@@ -70,8 +80,8 @@ static void styleAll(void)
 
     b[IDX_SETPOINT].setTextFormat("%d\xF8", s.setpointF);
 
-    // OFF is the first of four: it replaces a separate power button, so there
-    // is only ever one control saying whether the unit runs.
+    // OFF is the first of the row: it replaces a separate power button, so
+    // there is only ever one control saying whether the unit runs.
     const uint8_t active = MINISPLIT_uiMode();
     for (uint8_t m = 0; m < MS_UI_MODE_COUNT; m++)
     {
@@ -151,14 +161,13 @@ uint8_t climate_createBtns(void)
     b[IDX_PLUS].setTextSize(32);
 
     // --- Mode --------------------------------------------------------------
-    b[IDX_MODE_LABEL].setButton(40, 246, 116, 282, 0, true, 8, "MODE", ALIGN_LEFT,
-                                gfxTheme.background, gfxTheme.background, dim);
-    b[IDX_MODE_LABEL].setTextSize(16); b[IDX_MODE_LABEL].setClickable(false);
-
+    // Spans the full width (no label) to fit six options at a readable size:
+    // 40..456 is 416px, so pitch 69 / width 63 leaves ~7px either side of the
+    // widest label ("HEAT"/"COOL"/"AUTO" are 48px at text size 2).
     for (uint8_t m = 0; m < MS_UI_MODE_COUNT; m++)
     {
-        int x1 = 122 + m * 80;
-        b[IDX_MODE_0 + m].setButton(x1, 240, x1 + 74, 288, (uint16_t)(CR_MODE_BASE + m), true, 14,
+        int x1 = 40 + m * 69;
+        b[IDX_MODE_0 + m].setButton(x1, 240, x1 + 63, 288, (uint16_t)(CR_MODE_BASE + m), true, 14,
                                     "", ALIGN_CENTER, gfxTheme.btnColor, gfxTheme.btnBorder, gfxTheme.btnText);
         b[IDX_MODE_0 + m].setTextSize(16);
     }
@@ -200,12 +209,14 @@ uint8_t climate_createBtns(void)
 
     styleAll();
     setStatusLabel();
+    s_shownRev = MINISPLIT_revision();   // painted state is current
 
     return CLIMATE_BTN_COUNT;
 }
 
 static void refreshAll(void)
 {
+    s_shownRev = MINISPLIT_revision();
     styleAll();
     setStatusLabel();
     for (int i = IDX_STATUS; i < CLIMATE_BTN_COUNT; i++)
@@ -247,6 +258,14 @@ void climate_tick(void)
 
     if (!app || app->getActiveApp() != APP_CLIMATE || app->renderState != App::APP_STATE_DONE)
         return;
+
+    // Checked ahead of the status throttle so a remote change lands promptly
+    // rather than up to 250ms late.
+    if (MINISPLIT_revision() != s_shownRev)
+    {
+        refreshAll();
+        return;
+    }
 
     static uint32_t lastMs = 0;
     if (millis() - lastMs < 250)

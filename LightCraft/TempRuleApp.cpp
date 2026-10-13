@@ -125,10 +125,14 @@ uint8_t temprule_createBtns(void)
 
         GUI_I.drawCard(16, y0, 448, ROW_HEIGHT, 16, fill, shadow, 5);
 
-        // Light name — blends onto the card.
+        // Light name — blends onto the card. The box is 122px and ALIGN_LEFT
+        // insets the first glyph by 5, so 9 characters of a name fit here
+        // against the 10 a name may contain; the last one is truncated rather
+        // than allowed to run under the mode buttons.
         b[ctlIdx(i, CTL_NAME)].setButton(28, y0 + 35, 150, y0 + 75, 0, true, 10,
-                                         RELAY_name(i), ALIGN_LEFT,
+                                         "", ALIGN_LEFT,
                                          fill, fill, gfxTheme.btnTextColor);
+        b[ctlIdx(i, CTL_NAME)].setTextFormat("%.*s", (150 - 28 - 5) / 12, RELAY_name(i));
         b[ctlIdx(i, CTL_NAME)].setTextSize(16);
         b[ctlIdx(i, CTL_NAME)].setClickable(false);
 
